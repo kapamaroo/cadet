@@ -53,49 +53,4 @@ struct net_info {
     */
 };
 
-static inline void check_placement(struct placement_info *placement) {
-    assert(placement);
-    assert(placement->cell);
-
-    switch (placement->type) {
-    case I_CELL:
-        assert(strcmp(placement->cell->name,"input"));
-        assert(strcmp(placement->cell->name,"output"));
-        return;
-    case I_INPUT:
-        assert(!strcmp(placement->cell->name,"input"));
-        return;
-    case I_OUTPUT:
-        assert(!strcmp(placement->cell->name,"output"));
-        return;
-    }
-}
-
-static inline void check_net(struct net_info *net) {
-    assert(net);
-    assert(net->source);
-
-    switch (net->source->type) {
-    case I_CELL:
-    case I_INPUT:
-        assert(net->num_drain >= 1);
-        break;
-    case I_OUTPUT:
-        //some outputs connect to more than 1 cells ??
-        //assert(net->num_drain == 1);
-        break;
-    }
-
-    unsigned long i;
-    for (i=0; i<net->num_drain; ++i) {
-        assert(net->drain[i]);
-    }
-}
-
-static inline enum instance_type get_net_type(struct net_info *net) {
-    assert(net);
-    assert(net->source);
-    return net->source->type;
-}
-
 #endif

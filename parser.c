@@ -12,6 +12,47 @@ struct pool_info parse_libcell(struct file_info *input);
 struct pool_info parse_placement(struct file_info *input, struct pool_info libcell);
 struct pool_info parse_netlist(struct file_info *input, struct pool_info placement);
 
+//debug function
+static void check_placement(struct placement_info *placement) {
+    assert(placement);
+    assert(placement->cell);
+
+    switch (placement->type) {
+    case I_INPUT:
+        assert(!strcmp(placement->cell->name,"input"));
+        return;
+    case I_OUTPUT:
+        assert(!strcmp(placement->cell->name,"output"));
+        return;
+    case I_CELL:
+        assert(strcmp(placement->cell->name,"input"));
+        assert(strcmp(placement->cell->name,"output"));
+        return;
+    }
+}
+
+//debug function
+static void check_net(struct net_info *net) {
+    assert(net);
+    assert(net->source);
+
+    switch (net->source->type) {
+    case I_CELL:
+    case I_INPUT:
+        assert(net->num_drain >= 1);
+        break;
+    case I_OUTPUT:
+        //some outputs connect to more than 1 cells ??
+        //assert(net->num_drain == 1);
+        break;
+    }
+
+    unsigned long i;
+    for (i=0; i<net->num_drain; ++i) {
+        assert(net->drain[i]);
+    }
+}
+
 void parse(const char *libcell, const char *chip_dim,
            const char *placement, const char *netlist,
            struct analysis_info *analysis) {

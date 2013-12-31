@@ -2,6 +2,7 @@
 #define __ANALYSIS_H__
 
 #include "pool.h"
+#include "datatypes.h"
 
 typedef char grid_element;
 
