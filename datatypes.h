@@ -100,6 +100,7 @@ static inline enum instance_type get_net_type(struct net_info *net) {
 }
 
 struct analysis_info {
+    double wire_size;
     struct chip_info chip;
 
     struct pool_info libcell;
