@@ -3,7 +3,6 @@
 
 #include <string.h>
 #include <assert.h>
-#include "pool.h"
 
 #define MAX_NET_DRAIN 128
 
@@ -98,14 +97,5 @@ static inline enum instance_type get_net_type(struct net_info *net) {
     assert(net->source);
     return net->source->type;
 }
-
-struct analysis_info {
-    double wire_size;
-    struct chip_info chip;
-
-    struct pool_info libcell;
-    struct pool_info placement;
-    struct pool_info netlist;
-};
 
 #endif

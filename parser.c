@@ -5,6 +5,7 @@
 #include "pool.h"
 #include "parser_core.h"
 #include "parser.h"
+#include "analysis.h"
 
 struct chip_info parse_chip_dim(struct file_info *input);
 struct pool_info parse_libcell(struct file_info *input);

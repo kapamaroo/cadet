@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "parser.h"
+#include "analysis.h"
 
 #define DEFAULT_WIRE_SIZE 0.1
 

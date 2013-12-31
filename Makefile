@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-Wall -g -UNDEBUG
-#CFLAGS=-Wall -O3 -march=native -DNDEBUG
+CFLAGS=-lm -Wall -g -UNDEBUG
+#CFLAGS=-lm -Wall -O3 -march=native -DNDEBUG
 DEPS = parser.h pool.h datatypes.h
 OBJ = main.o pool.o parser_core.o parser.o
 

@@ -3,6 +3,8 @@
 
 #include "datatypes.h"
 
+struct analysis_info;
+
 #define SEMANTIC_ERRORS -2
 
 void parse(const char *libcell, const char *chip_dim,
