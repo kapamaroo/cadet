@@ -16,11 +16,11 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    struct analysis_info analysis;
-    parse(argv[1],argv[2],argv[3],argv[4],&analysis);
+    struct analysis_info soc;
+    parse(argv[1],argv[2],argv[3],argv[4],&soc);
 
     double wire_size = (argc == 6) ? atof(argv[5]) : DEFAULT_WIRE_SIZE;
-    analysis.wire_size = wire_size;
+    analyse(&soc,wire_size);
 
     return 0;
 }
