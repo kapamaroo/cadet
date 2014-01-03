@@ -4,7 +4,7 @@
 #include "parser.h"
 #include "analysis.h"
 
-#define DEFAULT_WIRE_SIZE 0.1
+#define DEFAULT_WIRE_SIZE 0.01
 
 void print_help() {
     printf("$cadet libcell.txt chip_dimension.txt placement.txt netlist.txt [wire_size]\n\n");
