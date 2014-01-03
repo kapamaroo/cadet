@@ -18,6 +18,20 @@ static inline void print_placement(struct placement_info *p) {
            p->cell->name, p->name,p->x,p->y,p->cell->size_x,p->cell->size_y);
 }
 
+static inline void print_grid(grid_element *grid,
+                              const unsigned long width,
+                              const unsigned long height) {
+    unsigned long i;
+    unsigned long j;
+    for (i=0; i<width; ++i) {
+        for (j=0; j<height; ++j) {
+            char value = grid[i*width + j] ? '#' : ' ';
+            printf("%c",value);
+        }
+        printf("\n");
+    }
+}
+
 //debug function
 static void check_analysis(struct analysis_info *a) {
     assert(a);
@@ -134,4 +148,6 @@ void analyse(struct analysis_info *soc, const double wire_size) {
         if (placement->type == I_CELL)
             put_placement(placement,wire_size,soc);
     }
+
+    //print_grid(soc->grid,soc->grid_width,soc->grid_height);
 }
