@@ -112,7 +112,7 @@ void put_placement(struct placement_info *p, const double wire_size,
     unsigned long cell_y = floor(p->cell->size_y / wire_size);
     unsigned long start_y = floor(p->y / wire_size);
     unsigned long end_y = start_y + cell_y;
-    if (end_y < cell_y) {
+    if (end_y > soc->grid_height) {
         print_placement(p);
         printf("end_y : %lu\ncell_y: %lu\nexit\n",end_y,cell_y);
         exit(EXIT_FAILURE);
