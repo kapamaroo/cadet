@@ -7,11 +7,22 @@
 enum grid_element_status {
     G_EMPTY = 0,
     G_BLOCKED,
-    G_WIRE,
-    G_VIA
+    G_INPUT,
+    G_OUTPUT
+};
+
+enum layer_element_status {
+    L_EMPTY = 0,
+    L_TRY_WIRE_LEFT  = 1 << 0,
+    L_TRY_WIRE_RIGHT = 1 << 1,
+    L_TRY_WIRE_UP    = 1 << 2,
+    L_TRY_WIRE_DOWN  = 1 << 3,
+    L_WIRE           = 1 << 4,
+    L_VIA            = 1 << 5
 };
 
 typedef enum grid_element_status grid_element;
+typedef enum layer_element_status layer_element;
 
 struct analysis_info {
     struct chip_info chip;
@@ -25,7 +36,9 @@ struct analysis_info {
     //normalized (wire grid) dimensions regarding wire_size
     unsigned long grid_width;
     unsigned long grid_height;
+
     grid_element *grid;
+    layer_element *layer;
 };
 
 void analyse(struct analysis_info *soc, const double wire_size);
