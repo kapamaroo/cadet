@@ -42,8 +42,20 @@ static void check_net(struct net_info *net) {
         assert(net->num_drain >= 1);
         break;
     case I_OUTPUT:
-        //some outputs connect to more than 1 cells ??
         //assert(net->num_drain == 1);
+        assert(net->num_drain >= 1);
+        //some outputs connect to more than 1 cells ??
+        //break;  //disable warning
+        if (net->num_drain > 1) {
+            printf(" * WARNING: multiple inputs/cells connected to output:");
+            printf("   %lu-to-1:    {",net->num_drain);
+            unsigned long i;
+            //print all but last
+            for (i=0; i<net->num_drain-1; ++i)
+                printf("%s, ",net->drain[i]->name);
+            //print last
+            printf("%s}  -->  {%s}\n",net->drain[i]->name,net->source->name);
+        }
         break;
     }
 
