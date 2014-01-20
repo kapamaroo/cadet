@@ -1,6 +1,14 @@
 #!/bin/bash
 
-#first parameter is the path to EDA-testcase
+if [ ! $# -eq 1 ]
+then
+    echo
+    echo takes one parameter:  the EDA-testcase directory
+    echo example:
+    echo "          $0 EDA-testcase"
+    echo
+    exit
+fi
 
 TOOL=`pwd`/cadet
 
