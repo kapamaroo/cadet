@@ -6,6 +6,11 @@
 
 #define MAX_NET_DRAIN 128
 
+struct discrete_dim {
+    unsigned long x;
+    unsigned long y;
+};
+
 struct chip_info {
     double width;   //x
     double height;  //y
@@ -38,6 +43,7 @@ struct placement_info {
     //number of input/output
     unsigned long input_gates;
     unsigned long output_gates;
+    unsigned long next_free_input_slot;
 };
 
 struct net_info {

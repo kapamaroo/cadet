@@ -3,6 +3,7 @@
 
 #include "parser.h"
 #include "analysis.h"
+#include "mikami.h"
 
 #define DEFAULT_WIRE_SIZE 0.01
 
@@ -22,7 +23,7 @@ int main(int argc, char *argv[]) {
     double wire_size = (argc == 6) ? atof(argv[5]) : DEFAULT_WIRE_SIZE;
     analyse(&soc,wire_size);
 
-    mikami(&soc,wire_size);
+    route_mikami(&soc,wire_size);
 
     return 0;
 }

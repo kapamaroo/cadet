@@ -43,6 +43,5 @@ struct analysis_info {
 };
 
 void analyse(struct analysis_info *soc, const double wire_size);
-void mikami(struct analysis_info *soc, const double wire_size);
 
 #endif

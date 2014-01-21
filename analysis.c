@@ -212,7 +212,3 @@ void analyse(struct analysis_info *soc, const double wire_size) {
     check_analysis(soc);
     create_grid_and_layers(soc,wire_size);
 }
-
-void mikami(struct analysis_info *soc, const double wire_size) {
-    //implement me
-}
