@@ -18,7 +18,8 @@ enum layer_element_status {
     L_TRY_WIRE_UP    = 1 << 2,
     L_TRY_WIRE_DOWN  = 1 << 3,
     L_WIRE           = 1 << 4,
-    L_VIA            = 1 << 5
+    L_VIA            = 1 << 5,
+    L_IO             = 1 << 6
 };
 
 typedef enum grid_element_status grid_element;
@@ -42,5 +43,6 @@ struct analysis_info {
 };
 
 void analyse(struct analysis_info *soc, const double wire_size);
+void mikami(struct analysis_info *soc, const double wire_size);
 
 #endif

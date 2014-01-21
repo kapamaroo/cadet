@@ -267,20 +267,23 @@ struct pool_info parse_netlist(struct file_info *input, struct pool_info placeme
             exit(EXIT_FAILURE);
         }
 
+        net->source->output_gates++;
         free(source_name);
 
         while (*input->pos != ';' && net->num_drain < MAX_NET_DRAIN) {
             //parse drain
             parse_eat_whitechars(input);
-            char *drain_name = parse_string(input,"drain name");
             unsigned long i = net->num_drain++;
+
+            char *drain_name = parse_string(input,"drain name");
             net->drain[i] = get_placement(drain_name,placement);
-            if (!net->drain[i]) {
+            free(drain_name);
+
+            if (!net->drain[i]){
                 printf("error:%lu:unknown placement '%s' - exit\n",input->line_num,source_name);
                 exit(EXIT_FAILURE);
             }
-
-            free(drain_name);
+            net->drain[i]->input_gates++;
         }
 
         if (*input->pos == ';')

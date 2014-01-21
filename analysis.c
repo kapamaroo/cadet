@@ -32,6 +32,20 @@ static inline void print_grid(grid_element *grid,
     }
 }
 
+static inline void print_layer(layer_element *layer,
+                              const unsigned long width,
+                              const unsigned long height) {
+    unsigned long i;
+    unsigned long j;
+    for (i=0; i<width; ++i) {
+        for (j=0; j<height; ++j) {
+            char value = layer[i*width + j] ? '#' : ' ';
+            printf("%c",value);
+        }
+        printf("\n");
+    }
+}
+
 //debug function
 static void check_analysis(struct analysis_info *a) {
     assert(a);
@@ -98,6 +112,23 @@ void put_placement(struct placement_info *p, const double wire_size,
     assert(p->type == I_CELL);
     assert(soc);
     assert(soc->grid);
+    assert(soc->layer);
+
+#if 1
+    assert(p->input_gates || p->output_gates);
+#else
+    if (!p->input_gates && !p->output_gates)
+        printf(" * WARNING: unused placement '%s'\n",p->name);
+    else {
+        if (!p->output_gates)
+            printf(" * WARNING: unused output for placement '%s'\n",p->name);
+        else if (p->output_gates != 1)
+            printf(" * WARNING: multiple output for placement '%s'\n",p->name);
+
+        if (!p->input_gates)
+            printf(" * WARNING: no input for placement '%s'\n",p->name);
+    }
+#endif
 
     //reminder: bottom left point placement
     unsigned long cell_x = floor(p->cell->size_x / wire_size);
@@ -123,10 +154,27 @@ void put_placement(struct placement_info *p, const double wire_size,
     for (i=start_x; i<end_x; ++i)
         for (j=start_y; j<end_y; ++j)
             soc->grid[i*soc->grid_width + j] = G_BLOCKED;
+
+    unsigned long total_io = p->input_gates + p->output_gates;
+    i = start_x + (end_x - start_x)/2;
+    unsigned long vertical_space = (end_y - start_y)/(total_io+1);
+    for (j=start_y; j<end_y; j+=vertical_space)
+        soc->layer[i*soc->grid_width + j] = L_IO;
 }
 
-void analyse(struct analysis_info *soc, const double wire_size) {
-    check_analysis(soc);
+void put_chip_io(struct placement_info *io, const double wire_size,
+                 struct analysis_info *soc) {
+    assert(io);
+    assert(io->type == I_INPUT || io->type == I_OUTPUT);
+    assert(soc);
+    assert(soc->layer);
+
+    unsigned long x = floor(io->x / wire_size);
+    unsigned long y = floor(io->y / wire_size);
+    soc->layer[x*soc->grid_width + y] = L_IO;
+}
+
+static void create_grid_and_layers(struct analysis_info *soc, const double wire_size) {
     assert(wire_size != 0.0);
 
     double cell_grid_x = floor(soc->chip.width / wire_size);
@@ -139,6 +187,9 @@ void analyse(struct analysis_info *soc, const double wire_size) {
     soc->grid = (grid_element *)_calloc(soc->grid_width * soc->grid_height,
                                         sizeof(grid_element));
 
+    soc->layer = (layer_element *)_calloc(soc->grid_width * soc->grid_height,
+                                          sizeof(layer_element));
+
     //set placement on grid
 
     unsigned long i;
@@ -147,7 +198,21 @@ void analyse(struct analysis_info *soc, const double wire_size) {
             (struct placement_info *)(soc->placement.data) + i;
         if (placement->type == I_CELL)
             put_placement(placement,wire_size,soc);
+        else if (placement->type == I_INPUT || placement->type == I_OUTPUT)
+            put_chip_io(placement,wire_size,soc);
+        else
+            assert(0 && "bad placement type");
     }
 
     //print_grid(soc->grid,soc->grid_width,soc->grid_height);
+    //print_layer(soc->layer,soc->grid_width,soc->grid_height);
+}
+
+void analyse(struct analysis_info *soc, const double wire_size) {
+    check_analysis(soc);
+    create_grid_and_layers(soc,wire_size);
+}
+
+void mikami(struct analysis_info *soc, const double wire_size) {
+    //implement me
 }

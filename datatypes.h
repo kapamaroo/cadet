@@ -34,6 +34,10 @@ struct placement_info {
     //bottom left point
     double x;
     double y;
+
+    //number of input/output
+    unsigned long input_gates;
+    unsigned long output_gates;
 };
 
 struct net_info {

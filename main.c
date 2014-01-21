@@ -22,5 +22,7 @@ int main(int argc, char *argv[]) {
     double wire_size = (argc == 6) ? atof(argv[5]) : DEFAULT_WIRE_SIZE;
     analyse(&soc,wire_size);
 
+    mikami(&soc,wire_size);
+
     return 0;
 }
