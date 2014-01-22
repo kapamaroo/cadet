@@ -244,6 +244,8 @@ char parse_char(struct file_info *input, char *patterns, char *info) {
 
     char c = tolower(**buf);
     (*buf)++;
+    if (*buf == end)
+        *buf = NULL;
 
     char *p = patterns;
     while (*p != '\0' && c != tolower(*p))
@@ -255,8 +257,6 @@ char parse_char(struct file_info *input, char *patterns, char *info) {
         exit(EXIT_FAILURE);
     }
 
-    parse_eat_whitechars(input);
-
     return c;
 }
 
@@ -266,7 +266,7 @@ double parse_value(struct file_info *input, char *prefix, char *info) {
     assert(input);
     char **buf = &input->pos;
 
-    if (!*buf || isspace(**buf)) {
+    if (!*buf || isdelimiter(**buf)) {
         printf("error:%lu: expected %s - exit\n",input->line_num,info);
         exit(EXIT_FAILURE);
     }
@@ -290,7 +290,8 @@ double parse_value(struct file_info *input, char *prefix, char *info) {
     errno = 0;
 
     double value;
-    int status = sscanf(*buf,"%lf",&value);
+    int offset = 0;
+    int status = sscanf(*buf,"%lf%n",&value,&offset);
     if (errno) {
         perror(__FUNCTION__);
         exit(EXIT_FAILURE);
@@ -304,15 +305,11 @@ double parse_value(struct file_info *input, char *prefix, char *info) {
         exit(EXIT_FAILURE);
     }
 
-    while (*buf != end) {
-        if (isspace(**buf))
-            break;
-        (*buf)++;
-    }
+    (*buf) += offset;
 
     if (*buf == end)
         *buf = NULL;
-    if (*buf && !isspace(**buf)) {
+    if (*buf && !isdelimiter(**buf)) {
         printf("error:%lu: invalid character '%c' after value %lf - exit.\n",
                input->line_num,**buf,value);
         exit(EXIT_FAILURE);
@@ -332,7 +329,7 @@ double parse_value_optional(struct file_info *input, char *prefix,
     assert(input);
     char **buf = &input->pos;
 
-    if (!*buf || isspace(**buf))
+    if (!*buf || isdelimiter(**buf))
         return default_value;
     else
         return parse_value(input,prefix,"value");
