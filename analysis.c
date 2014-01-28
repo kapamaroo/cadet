@@ -160,10 +160,27 @@ void put_placement(struct placement_info *p, const double wire_size,
             soc->grid[i*soc->grid_width + j] = G_BLOCKED;
 
     unsigned long total_io = p->input_gates + p->output_gates;
-    i = start_x + (end_x - start_x)/2;
     unsigned long vertical_space = (end_y - start_y)/(total_io+1);
-    for (j=start_y; j<end_y; j+=vertical_space)
+
+    //fixed xaxis
+    i = start_x + (end_x - start_x)/2;
+
+    //find inputs' coordinates
+    unsigned long input_slot = 0;
+    for (input_slot = 0; input_slot<p->input_gates; ++input_slot) {
+        j = start_y + input_slot * vertical_space;
+
+        p->input_slots[input_slot].usize.x = i;
+        p->input_slots[input_slot].usize.y = j;
+
         soc->layer[i*soc->grid_width + j] = L_IO;
+    }
+
+    //find output's coordinates
+    j = start_y + input_slot * vertical_space;
+
+    p->output_slot.usize.x = i;
+    p->output_slot.usize.y = j;
 }
 
 void put_chip_io(struct placement_info *io, const double wire_size,

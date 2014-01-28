@@ -285,6 +285,7 @@ struct pool_info parse_netlist(struct file_info *input, struct pool_info placeme
                 exit(EXIT_FAILURE);
             }
             net->drain[i]->input_gates++;
+            assert(net->drain[i]->input_gates <= MAX_INPUT_SLOTS);
         }
 
         if (*input->pos == ';')

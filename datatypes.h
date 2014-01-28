@@ -39,6 +39,8 @@ enum instance_type {
     I_CELL
 };
 
+#define MAX_INPUT_SLOTS 8
+
 struct placement_info {
     enum instance_type type;
     char *name;  //instance name
@@ -49,11 +51,12 @@ struct placement_info {
     struct dim_size dim;
 
     //number of input/output
-    struct pool_info input_slots;
-    struct dim_size output_slot;
-
     unsigned long input_gates;
+    struct dim_size input_slots[MAX_INPUT_SLOTS];
+    unsigned long next_free_input_slot;
+
     unsigned long output_gates;
+    struct dim_size output_slot;
 };
 
 struct net_info {
