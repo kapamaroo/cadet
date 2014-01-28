@@ -2,6 +2,7 @@
 #define __POOL_H__
 
 struct pool_info {
+    void (*rebuild)(void);
     void *data;
     unsigned long element_size;
     unsigned long size;
@@ -9,6 +10,6 @@ struct pool_info {
 };
 
 //return new size
-unsigned long grow(struct pool_info *pool, void (*rebuild)(void));
+unsigned long grow(struct pool_info *pool);
 
 #endif

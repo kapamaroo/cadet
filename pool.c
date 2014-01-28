@@ -4,7 +4,7 @@
 #include <assert.h>
 #include "pool.h"
 
-unsigned long grow(struct pool_info *pool, void (*rebuild)(void)) {
+unsigned long grow(struct pool_info *pool) {
     //returns the new size
 
     assert(pool->element_size);
@@ -43,8 +43,8 @@ unsigned long grow(struct pool_info *pool, void (*rebuild)(void)) {
 
     void *old_data = pool->data;
     pool->data = new_data;
-    if (old_data != new_data && rebuild)
-        rebuild();
+    if (old_data != new_data && pool->rebuild)
+        pool->rebuild();
 
     return pool->size;
 }

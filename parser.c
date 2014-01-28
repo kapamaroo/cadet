@@ -103,12 +103,12 @@ struct chip_info parse_chip_dim(struct file_info *input) {
     //get height
     while (*input->pos++ != '=') ;
     parse_eat_whitechars(input);
-    output.height = parse_value(input,NULL,"chip height");
+    output.dim.fsize.y = parse_value(input,NULL,"chip height");
 
     //get width
     while (*input->pos++ != '=') ;
     parse_eat_whitechars(input);
-    output.width = parse_value(input,NULL,"chip width");
+    output.dim.fsize.x = parse_value(input,NULL,"chip width");
 
     return output;
 }
@@ -121,17 +121,17 @@ struct pool_info parse_libcell(struct file_info *input) {
     output.element_size = sizeof(struct libcell_info);
 
     //add two extra cells one of types 'input' and 'output'
-    grow(&output,NULL);
+    grow(&output);
     struct libcell_info *cell_input = (struct libcell_info *)(output.data) + output.next++;
     cell_input->name = "input";
-    cell_input->size_x = 0.0;
-    cell_input->size_y = 0.0;
+    cell_input->dim.fsize.x = 0.0;
+    cell_input->dim.fsize.y = 0.0;
 
-    grow(&output,NULL);
+    grow(&output);
     struct libcell_info *cell_output = (struct libcell_info *)(output.data) + output.next++;
     cell_output->name = "output";
-    cell_output->size_x = 0.0;
-    cell_output->size_y = 0.0;
+    cell_output->dim.fsize.x = 0.0;
+    cell_output->dim.fsize.y = 0.0;
 
     //skip first line
     discard_line(input);
@@ -139,7 +139,7 @@ struct pool_info parse_libcell(struct file_info *input) {
 
     while (input->pos) {
         //parse line
-        grow(&output,NULL);
+        grow(&output);
         struct libcell_info *cell = (struct libcell_info *)(output.data) + output.next++;
         memset(cell,0,sizeof(struct libcell_info));
 
@@ -147,13 +147,13 @@ struct pool_info parse_libcell(struct file_info *input) {
         parse_eat_whitechars(input);
         cell->name = parse_string(input,"libcell name");
 
-        //parse size_x
+        //parse x
         parse_eat_whitechars(input);
-        cell->size_x = parse_value(input,NULL,"size x");
+        cell->dim.fsize.x = parse_value(input,NULL,"size x");
 
-        //parse size_y
+        //parse y
         parse_eat_whitechars(input);
-        cell->size_y = parse_value(input,NULL,"size y");
+        cell->dim.fsize.y = parse_value(input,NULL,"size y");
 
         int bad_chars = discard_line(input);
         if (bad_chars)
@@ -174,7 +174,7 @@ struct pool_info parse_placement(struct file_info *input, struct pool_info libce
 
     while (input->pos) {
         //parse line
-        grow(&output,NULL);
+        grow(&output);
         struct placement_info *placement = (struct placement_info *)(output.data) + output.next++;
         memset(placement,0,sizeof(struct placement_info));
 
@@ -212,13 +212,13 @@ struct pool_info parse_placement(struct file_info *input, struct pool_info libce
         parse_eat_whitechars(input);
         placement->name = parse_string(input,"placement name");
 
-        //parse size_x
+        //parse x
         parse_eat_whitechars(input);
-        placement->x = parse_value(input,NULL,"placement x");
+        placement->dim.fsize.x = parse_value(input,NULL,"placement x");
 
-        //parse size_y
+        //parse y
         parse_eat_whitechars(input);
-        placement->y = parse_value(input,NULL,"placement y");
+        placement->dim.fsize.y = parse_value(input,NULL,"placement y");
 
         int bad_chars = discard_line(input);
         if (bad_chars)
@@ -250,7 +250,7 @@ struct pool_info parse_netlist(struct file_info *input, struct pool_info placeme
 
     while (input->pos) {
         //parse net
-        grow(&output,NULL);
+        grow(&output);
         struct net_info *net = (struct net_info *)(output.data) + output.next++;
         memset(net,0,sizeof(struct net_info));
 
@@ -267,7 +267,8 @@ struct pool_info parse_netlist(struct file_info *input, struct pool_info placeme
             exit(EXIT_FAILURE);
         }
 
-        net->source->output_gates++;
+        //just one output
+        net->source->output_gates = 1;
         free(source_name);
 
         while (*input->pos != ';' && net->num_drain < MAX_NET_DRAIN) {

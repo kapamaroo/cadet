@@ -3,23 +3,32 @@
 
 #include <string.h>
 #include <assert.h>
+#include "pool.h"
 
 #define MAX_NET_DRAIN 128
 
-struct discrete_dim {
+struct double_size {
+    double x;
+    double y;
+};
+
+struct ulong_size {
     unsigned long x;
     unsigned long y;
 };
 
+struct dim_size {
+    struct double_size fsize;
+    struct ulong_size usize;
+};
+
 struct chip_info {
-    double width;   //x
-    double height;  //y
+    struct dim_size dim;
 };
 
 struct libcell_info {
     char *name;
-    double size_x;
-    double size_y;
+    struct dim_size dim;
 };
 
 //consider inputs and outputs as cell instances of 'input'/'output' cells
@@ -37,13 +46,14 @@ struct placement_info {
     struct libcell_info *cell;
 
     //bottom left point
-    double x;
-    double y;
+    struct dim_size dim;
 
     //number of input/output
+    struct pool_info input_slots;
+    struct dim_size output_slot;
+
     unsigned long input_gates;
     unsigned long output_gates;
-    unsigned long next_free_input_slot;
 };
 
 struct net_info {

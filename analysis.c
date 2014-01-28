@@ -15,7 +15,8 @@ static inline int __eq(const double a, const double b) {
 static inline void print_placement(struct placement_info *p) {
     assert(p);
     printf("%s %s %lf %lf\t#libcell size (x:%lf y:%lf)\n",
-           p->cell->name, p->name,p->x,p->y,p->cell->size_x,p->cell->size_y);
+           p->cell->name, p->name,p->dim.fsize.x,p->dim.fsize.y,
+           p->cell->dim.fsize.x,p->cell->dim.fsize.y);
 }
 
 static inline void print_grid(grid_element *grid,
@@ -56,28 +57,26 @@ static void check_analysis(struct analysis_info *a) {
         struct placement_info *p = (struct placement_info*)(a->placement.data) + i;
         switch (p->type) {
         case I_INPUT:
-            //assure that input is on the edges
-            assert(__eq(p->x,0.0) || __eq(p->x,a->chip.width) ||
-                   __eq(p->y,0.0) || __eq(p->y,a->chip.height));
-            break;
         case I_OUTPUT:
-            //assure that output is on the edges
-            assert(__eq(p->x,0.0) || __eq(p->x,a->chip.width) ||
-                   __eq(p->y,0.0) || __eq(p->y,a->chip.height));
+            //assure that input/output is on the edges
+            assert(__eq(p->dim.fsize.x,0.0) || __eq(p->dim.fsize.x,a->chip.dim.fsize.x) ||
+                   __eq(p->dim.fsize.y,0.0) || __eq(p->dim.fsize.y,a->chip.dim.fsize.y));
             break;
         case I_CELL: {
-            if (!(p->x + p->cell->size_x < a->chip.width ||
-                  __eq(p->x + p->cell->size_x,a->chip.width))) {
+            if (!(p->dim.fsize.x + p->cell->dim.fsize.x < a->chip.dim.fsize.x ||
+                  __eq(p->dim.fsize.x + p->cell->dim.fsize.x,a->chip.dim.fsize.x))) {
                 print_placement(p);
-                printf("chip size (width:%lf height:%lf)\n",a->chip.width, a->chip.height);
+                printf("chip size (width:%lf height:%lf)\n",
+                       a->chip.dim.fsize.x,a->chip.dim.fsize.y);
                 printf("placement on x puts cell out of chip - exit\n");
                 exit(EXIT_FAILURE);
             }
 
-            if (!(p->y + p->cell->size_y < a->chip.height ||
-                  __eq(p->y + p->cell->size_y,a->chip.height))) {
+            if (!(p->dim.fsize.y + p->cell->dim.fsize.y < a->chip.dim.fsize.y ||
+                  __eq(p->dim.fsize.y + p->cell->dim.fsize.y,a->chip.dim.fsize.y))) {
                 print_placement(p);
-                printf("chip size (width:%lf height:%lf)\n",a->chip.width, a->chip.height);
+                printf("chip size (width:%lf height:%lf)\n",
+                       a->chip.dim.fsize.x,a->chip.dim.fsize.y);
                 printf("placement on y puts cell out of chip - exit\n");
                 exit(EXIT_FAILURE);
             }
@@ -116,6 +115,7 @@ void put_placement(struct placement_info *p, const double wire_size,
 
 #if 1
     assert(p->input_gates || p->output_gates);
+    //printf("___________________%lu\n",p->output_gates);
 #else
     if (!p->input_gates && !p->output_gates)
         printf(" * WARNING: unused placement '%s'\n",p->name);
@@ -131,8 +131,10 @@ void put_placement(struct placement_info *p, const double wire_size,
 #endif
 
     //reminder: bottom left point placement
-    unsigned long cell_x = floor(p->cell->size_x / wire_size);
-    unsigned long start_x = floor(p->x / wire_size);
+    p->cell->dim.usize.x = floor(p->cell->dim.fsize.x / wire_size);
+    p->dim.usize.x = floor(p->dim.fsize.x / wire_size);
+    unsigned long cell_x = p->cell->dim.usize.x;
+    unsigned long start_x = p->dim.usize.x;
     unsigned long end_x = start_x + cell_x;
     if (end_x > soc->grid_width) {
         print_placement(p);
@@ -140,8 +142,10 @@ void put_placement(struct placement_info *p, const double wire_size,
         exit(EXIT_FAILURE);
     }
 
-    unsigned long cell_y = floor(p->cell->size_y / wire_size);
-    unsigned long start_y = floor(p->y / wire_size);
+    p->cell->dim.usize.y = floor(p->cell->dim.fsize.y / wire_size);
+    p->dim.usize.y = floor(p->dim.fsize.y / wire_size);
+    unsigned long cell_y = p->cell->dim.usize.y;
+    unsigned long start_y = p->dim.usize.y;
     unsigned long end_y = start_y + cell_y;
     if (end_y > soc->grid_height) {
         print_placement(p);
@@ -169,16 +173,20 @@ void put_chip_io(struct placement_info *io, const double wire_size,
     assert(soc);
     assert(soc->layer);
 
-    unsigned long x = floor(io->x / wire_size);
-    unsigned long y = floor(io->y / wire_size);
+    io->dim.usize.x = floor(io->dim.fsize.x / wire_size);
+    io->dim.usize.y = floor(io->dim.fsize.y / wire_size);
+    unsigned long x = io->dim.usize.x;
+    unsigned long y = io->dim.usize.y;
     soc->layer[x*soc->grid_width + y] = L_IO;
 }
 
 static void create_grid_and_layers(struct analysis_info *soc, const double wire_size) {
     assert(wire_size != 0.0);
 
-    double cell_grid_x = floor(soc->chip.width / wire_size);
-    double cell_grid_y = floor(soc->chip.height / wire_size);
+    soc->chip.dim.usize.x = floor(soc->chip.dim.fsize.x / wire_size);
+    soc->chip.dim.usize.y = floor(soc->chip.dim.fsize.y / wire_size);
+    double cell_grid_x = soc->chip.dim.usize.x;
+    double cell_grid_y = soc->chip.dim.usize.y;
 
     soc->wire_size = wire_size;
     soc->grid_width = cell_grid_x;
