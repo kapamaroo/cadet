@@ -11,7 +11,7 @@ unsigned long height = 0;
 
 int mikami(struct ulong_size S, struct ulong_size T);
 
-void route_mikami(struct analysis_info *soc, const double wire_size) {
+int route_mikami(struct analysis_info *soc, const double wire_size) {
     layer = soc->layer;
     width = soc->grid_width;
     height = soc->grid_height;
@@ -26,14 +26,13 @@ void route_mikami(struct analysis_info *soc, const double wire_size) {
             net++;
             printf("__________    routing net %4lu ...\n",net);
             unsigned long next_input = netlist->drain[j]->next_free_input_slot++;
-            int ok = mikami(netlist->source->output_slot.usize,
-                            netlist->drain[j]->input_slots[next_input].usize);
-            if (!ok) {
-                soc->error = ok;
-                return;
-            }
+            int error = mikami(netlist->source->output_slot.usize,
+                               netlist->drain[j]->input_slots[next_input].usize);
+            if (error)
+                return error;
         }
     }
+    return 0;
 }
 
 static inline int blocked(const layer_element l) {
@@ -237,7 +236,7 @@ int has_intersection() {
 }
 
 int mikami(struct ulong_size S, struct ulong_size T) {
-    //return 1 on success
+    //return 0 on success
 
 #if 1
     assert(LAYER(S.x,S.y) == L_IO);
@@ -291,10 +290,10 @@ int mikami(struct ulong_size S, struct ulong_size T) {
 
     if (loop == MAX_LOOP) {
         printf("max loop limit (%d) reached\n",MAX_LOOP);
-        return 0;
+        return 1;
     }
     else if (loop != 1)
         printf("#####    loop %4d\n",loop);
 
-    return 1;
+    return 0;
 }

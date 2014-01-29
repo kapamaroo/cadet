@@ -26,8 +26,6 @@ typedef enum grid_element_status grid_element;
 typedef enum layer_element_status layer_element;
 
 struct analysis_info {
-    int error;
-
     struct chip_info chip;
 
     struct pool_info libcell;

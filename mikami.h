@@ -3,6 +3,6 @@
 
 struct analysis_info;
 
-void route_mikami(struct analysis_info *soc, const double wire_size);
+int route_mikami(struct analysis_info *soc, const double wire_size);
 
 #endif
