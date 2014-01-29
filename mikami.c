@@ -266,8 +266,6 @@ int mikami(struct ulong_size S, struct ulong_size T) {
         printf("#####    loop %4d\n",loop);
         if (loop == MAX_LOOP)  break;
 
-        clean_layer();
-
         try_up(S);
         try_down(S);
         try_left(S);
@@ -279,6 +277,7 @@ int mikami(struct ulong_size S, struct ulong_size T) {
         try_right(T);
 
         path_found = has_intersection();
+        clean_layer();
     }
 
 #if 1
