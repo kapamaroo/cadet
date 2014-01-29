@@ -30,7 +30,7 @@ void route_mikami(struct analysis_info *soc, const double wire_size) {
                             netlist->drain[j]->input_slots[next_input].usize);
             if (!ok) {
                 soc->error = ok;
-                break;
+                return;
             }
         }
     }
