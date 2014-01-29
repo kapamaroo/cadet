@@ -164,20 +164,20 @@ void clean_layer() {
 }
 
 static inline layer_element get_connection(const layer_element l) {
-    if (l == (L_TRY_WIRE_LEFT & L_TRY_WIRE_RIGHT))
+    if (l == (L_TRY_WIRE_LEFT | L_TRY_WIRE_RIGHT))
         return L_WIRE;
 
-    if (l == (L_TRY_WIRE_LEFT & L_TRY_WIRE_UP))
+    if (l == (L_TRY_WIRE_LEFT | L_TRY_WIRE_UP))
         return L_VIA;
-    if (l == (L_TRY_WIRE_LEFT & L_TRY_WIRE_DOWN))
-        return L_VIA;
-
-    if (l == (L_TRY_WIRE_RIGHT & L_TRY_WIRE_UP))
-        return L_VIA;
-    if (l == (L_TRY_WIRE_RIGHT & L_TRY_WIRE_DOWN))
+    if (l == (L_TRY_WIRE_LEFT | L_TRY_WIRE_DOWN))
         return L_VIA;
 
-    if (l == (L_TRY_WIRE_UP & L_TRY_WIRE_DOWN))
+    if (l == (L_TRY_WIRE_RIGHT | L_TRY_WIRE_UP))
+        return L_VIA;
+    if (l == (L_TRY_WIRE_RIGHT | L_TRY_WIRE_DOWN))
+        return L_VIA;
+
+    if (l == (L_TRY_WIRE_UP | L_TRY_WIRE_DOWN))
         return L_WIRE;
 
     return l;
@@ -186,32 +186,32 @@ static inline layer_element get_connection(const layer_element l) {
 void mark_path(const struct ulong_size p, const layer_element l) {
     //mark the opposite directions
 
-    if (l == (L_TRY_WIRE_LEFT & L_TRY_WIRE_RIGHT)) {
+    if (l == (L_TRY_WIRE_LEFT | L_TRY_WIRE_RIGHT)) {
         LAYER(p.x,p.y) = L_WIRE;
         mark_right(p);
         mark_left(p);
     }
-    else if (l == (L_TRY_WIRE_LEFT & L_TRY_WIRE_UP)) {
+    else if (l == (L_TRY_WIRE_LEFT | L_TRY_WIRE_UP)) {
         LAYER(p.x,p.y) = L_VIA;
         mark_right(p);
         mark_down(p);
     }
-    else if (l == (L_TRY_WIRE_LEFT & L_TRY_WIRE_DOWN)) {
+    else if (l == (L_TRY_WIRE_LEFT | L_TRY_WIRE_DOWN)) {
         LAYER(p.x,p.y) = L_VIA;
         mark_right(p);
         mark_up(p);
     }
-    else if (l == (L_TRY_WIRE_RIGHT & L_TRY_WIRE_UP)) {
+    else if (l == (L_TRY_WIRE_RIGHT | L_TRY_WIRE_UP)) {
         LAYER(p.x,p.y) = L_VIA;
         mark_left(p);
         mark_down(p);
     }
-    else if (l == (L_TRY_WIRE_RIGHT & L_TRY_WIRE_DOWN)) {
+    else if (l == (L_TRY_WIRE_RIGHT | L_TRY_WIRE_DOWN)) {
         LAYER(p.x,p.y) = L_VIA;
         mark_right(p);
         mark_down(p);
     }
-    else if (l == (L_TRY_WIRE_UP & L_TRY_WIRE_DOWN)) {
+    else if (l == (L_TRY_WIRE_UP | L_TRY_WIRE_DOWN)) {
         LAYER(p.x,p.y) = L_WIRE;
         mark_down(p);
         mark_up(p);
