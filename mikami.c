@@ -158,14 +158,10 @@ void mark_down(struct ulong_size P) {
 void clean_layer() {
     unsigned long i;
     unsigned long j;
-    for (i=0; i<width; ++i) {
-        for (j=0; j<height; ++j) {
-            if (LAYER(i,j) != L_EMPTY && !blocked(LAYER(i,j))) {
-                //printf("__bad code__ layer[%lu,%lu] = %d\n",i,j,LAYER(i,j));
+    for (i=0; i<width; ++i)
+        for (j=0; j<height; ++j)
+            if (LAYER(i,j) != L_EMPTY && !blocked(LAYER(i,j)))
                 LAYER(i,j) = L_EMPTY;
-            }
-        }
-    }
 }
 
 static inline layer_element get_connection(const layer_element l) {
@@ -263,7 +259,6 @@ int mikami(struct ulong_size S, struct ulong_size T) {
     while (!path_found) {
         loop++;
 
-        printf("#####    loop %4d\n",loop);
         if (loop == MAX_LOOP)  break;
 
         try_up(S);
@@ -298,6 +293,8 @@ int mikami(struct ulong_size S, struct ulong_size T) {
         printf("max loop limit (%d) reached\n",MAX_LOOP);
         return 0;
     }
+    else if (loop != 1)
+        printf("#####    loop %4d\n",loop);
 
     return 1;
 }
