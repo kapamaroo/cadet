@@ -25,5 +25,15 @@ int main(int argc, char *argv[]) {
 
     route_mikami(&soc,wire_size);
 
+    //print_grid(soc.grid,soc.grid_width,soc.grid_height);
+    //print_layer(soc.layer,soc.grid_width,soc.grid_height);
+
+    if (soc.error) {
+        printf("failed\n");
+        return 1;
+    }
+
+    //success!
+    printf("all netlists succesfully connected\n");
     return 0;
 }

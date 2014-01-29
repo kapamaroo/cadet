@@ -19,9 +19,9 @@ static inline void print_placement(struct placement_info *p) {
            p->cell->dim.fsize.x,p->cell->dim.fsize.y);
 }
 
-static inline void print_grid(grid_element *grid,
-                              const unsigned long width,
-                              const unsigned long height) {
+void print_grid(grid_element *grid,
+                const unsigned long width,
+                const unsigned long height) {
     unsigned long i;
     unsigned long j;
     for (i=0; i<width; ++i) {
@@ -33,17 +33,27 @@ static inline void print_grid(grid_element *grid,
     }
 }
 
-static inline void print_layer(layer_element *layer,
-                              const unsigned long width,
-                              const unsigned long height) {
+void print_layer(layer_element *layer,
+                 const unsigned long width,
+                 const unsigned long height) {
     unsigned long i;
     unsigned long j;
     for (i=0; i<width; ++i) {
         for (j=0; j<height; ++j) {
-            char value = layer[i*width + j] ? '#' : ' ';
-            printf("%c",value);
+            char c;
+            switch (layer[i*width + j]) {
+            case L_EMPTY:           c = ' ';  break;
+            case L_TRY_WIRE_LEFT:   c = '-';  break;
+            case L_TRY_WIRE_RIGHT:  c = '-';  break;
+            case L_TRY_WIRE_UP:     c = '-';  break;
+            case L_TRY_WIRE_DOWN:   c = '-';  break;
+            case L_WIRE:            c = '=';  break;
+            case L_VIA:             c = '#';  break;
+            case L_IO:              c = 'O';  break;
+            }
+            printf("%c",c);
         }
-        printf("\n");
+        printf("|\n");
     }
 }
 
@@ -159,8 +169,10 @@ void put_placement(struct placement_info *p, const double wire_size,
         for (j=start_y; j<end_y; ++j)
             soc->grid[i*soc->grid_width + j] = G_BLOCKED;
 
-    unsigned long total_io = p->input_gates + p->output_gates;
-    unsigned long vertical_space = (end_y - start_y)/(total_io+1);
+    assert(p->output_gates <= 1);
+    //+1 for the output
+    unsigned long total_io = p->input_gates + 1;
+    unsigned long space = (end_y - start_y)/(total_io+1);
 
     //fixed xaxis
     i = start_x + (end_x - start_x)/2;
@@ -168,7 +180,7 @@ void put_placement(struct placement_info *p, const double wire_size,
     //find inputs' coordinates
     unsigned long input_slot = 0;
     for (input_slot = 0; input_slot<p->input_gates; ++input_slot) {
-        j = start_y + input_slot * vertical_space;
+        j = start_y + (input_slot + 1) * space;
 
         p->input_slots[input_slot].usize.x = i;
         p->input_slots[input_slot].usize.y = j;
@@ -177,10 +189,11 @@ void put_placement(struct placement_info *p, const double wire_size,
     }
 
     //find output's coordinates
-    j = start_y + input_slot * vertical_space;
+    j = start_y + (total_io) * space;
 
     p->output_slot.usize.x = i;
     p->output_slot.usize.y = j;
+    soc->layer[i*soc->grid_width + j] = L_IO;
 }
 
 void put_chip_io(struct placement_info *io, const double wire_size,
@@ -194,6 +207,10 @@ void put_chip_io(struct placement_info *io, const double wire_size,
     io->dim.usize.y = floor(io->dim.fsize.y / wire_size);
     unsigned long x = io->dim.usize.x;
     unsigned long y = io->dim.usize.y;
+
+    io->output_slot.usize.x = x;
+    io->output_slot.usize.y = y;
+
     soc->layer[x*soc->grid_width + y] = L_IO;
 }
 
