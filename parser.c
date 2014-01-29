@@ -70,6 +70,7 @@ void parse(const char *libcell, const char *chip_dim,
            struct analysis_info *analysis) {
     assert(analysis);
 
+    memset(analysis,0,sizeof(struct analysis_info));
     struct file_info *current_input = NULL;
 
     current_input = open_file(libcell);
