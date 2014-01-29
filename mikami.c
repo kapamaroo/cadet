@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "analysis.h"
 
-#define MAX_LOOP 1024
+#define MAX_LOOP 2
 
 layer_element *layer = NULL;
 unsigned long width = 0;
@@ -19,20 +19,24 @@ int route_mikami(struct analysis_info *soc, const double wire_size) {
     unsigned long i;
     unsigned long j;
     unsigned long net = 0;
+    int status = 0;
 
     for (i=0; i<soc->netlist.next; ++i) {
         struct net_info *netlist = (struct net_info *)(soc->netlist.data) + i;
         for (j=0; j<netlist->num_drain; ++j) {
             net++;
-            printf("__________    routing net %4lu ...\n",net);
+            //printf("__________    routing net %4lu ...\n",net);
             unsigned long next_input = netlist->drain[j]->next_free_input_slot++;
             int error = mikami(netlist->source->output_slot.usize,
                                netlist->drain[j]->input_slots[next_input].usize);
-            if (error)
-                return error;
+            if (error) {
+                status++;
+                //return status;  //abort routing
+                break;            //ignore netlist
+            }
         }
     }
-    return 0;
+    return status;
 }
 
 static inline int blocked(const layer_element l) {
@@ -225,6 +229,7 @@ int has_intersection() {
         for (j=0; j<height; ++j) {
             layer_element status = get_connection(LAYER(i,j));
             if (status == L_WIRE || status == L_VIA) {
+                //printf("____    connection in layer[%lu,%lu] = %d (%d)\n",i,j,LAYER(i,j),status);
                 //found intersection
                 struct ulong_size p = { .x = i, .y = j };
                 mark_path(p,LAYER(i,j));
@@ -271,6 +276,7 @@ int mikami(struct ulong_size S, struct ulong_size T) {
         try_right(T);
 
         path_found = has_intersection();
+        //return 1;
         clean_layer();
     }
 

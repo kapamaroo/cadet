@@ -23,10 +23,11 @@ int main(int argc, char *argv[]) {
     double wire_size = (argc == 6) ? atof(argv[5]) : DEFAULT_WIRE_SIZE;
     analyse(&soc,wire_size);
 
+    //print_layer(soc.layer,soc.grid_width,soc.grid_height);
     int error = route_mikami(&soc,wire_size);
 
     //print_grid(soc.grid,soc.grid_width,soc.grid_height);
-    //print_layer(soc.layer,soc.grid_width,soc.grid_height);
+    print_layer(soc.layer,soc.grid_width,soc.grid_height);
 
     if (error) {
         printf("failed\n");
