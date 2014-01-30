@@ -1,16 +1,16 @@
 CC=gcc
 CFLAGS=-lm -Wall -g -UNDEBUG
 #CFLAGS=-lm -Wall -O3 -march=native -DNDEBUG
-DEPS = parser.h pool.h datatypes.h
+DEPS = parser.h pool.h datatypes.h analysis.h
 OBJ = main.o pool.o parser_core.o parser.o analysis.o mikami.o
 
 NAME = cadet
 
 %.o: %.c $(DEPS)
-	$(CC) -c -o $@ $< $(CFLAGS)
+	$(CC) $(CFLAGS) -c -o $@ $<
 
 $(NAME): $(OBJ)
-	gcc -o $@ $^ $(CFLAGS)
+	$(CC) $(CFLAGS) -o $@ $^
 
 
 .PHONY: clean
