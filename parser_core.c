@@ -232,30 +232,37 @@ char parse_char(struct file_info *input, char *patterns, char *info) {
     assert(input);
     char **buf = &input->pos;
 
+    //if info == NULL, do not fail if patterns not found and return NULL char '\0'
+
     assert(patterns && strlen(patterns));
 
     char *end = input->raw_end;
     if (*buf == end)
         *buf = NULL;
     if (!*buf) {
+        if (!info)
+            return '\0';
         printf("error:%lu: expected %s - exit.\n",input->line_num,info);
         exit(EXIT_FAILURE);
     }
 
     char c = tolower(**buf);
-    (*buf)++;
-    if (*buf == end)
-        *buf = NULL;
 
     char *p = patterns;
     while (*p != '\0' && c != tolower(*p))
         p++;
 
     if (*p == '\0') {
+        if (!info)
+            return '\0';
         printf("error:%lu: parsing %s, expected '%s' got '%c' 0x%02x (hex ascii) - exit\n",
                input->line_num,info,patterns,c,c);
         exit(EXIT_FAILURE);
     }
+
+    (*buf)++;
+    if (*buf == end)
+        *buf = NULL;
 
     return c;
 }
