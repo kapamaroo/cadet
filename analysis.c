@@ -24,8 +24,8 @@ void print_grid(grid_element *grid,
                 const unsigned long height) {
     unsigned long i;
     unsigned long j;
-    for (i=0; i<width; ++i) {
-        for (j=0; j<height; ++j) {
+    for (i=0; i<height; ++i) {
+        for (j=0; j<width; ++j) {
             char value = grid[i*width + j] ? '#' : ' ';
             printf("%c",value);
         }
@@ -38,16 +38,33 @@ void print_layer(layer_element *layer,
                  const unsigned long height) {
     unsigned long i;
     unsigned long j;
-    for (i=0; i<width; ++i) {
-        for (j=0; j<height; ++j) {
+    for (i=0; i<height; ++i) {
+        printf("|");
+        for (j=0; j<width; ++j) {
             char c;
             switch (layer[i*width + j].status) {
             case L_EMPTY:           c = ' ';  break;
             case L_IO:              c = 'O';  break;
-            case L_WIRE:            c = '=';  break;
+            case L_WIRE:            c = 'X';  break;
             case L_VIA:             c = '#';  break;
-            case L_TRY:             c = '-';  break;
-            default:                c = ' ';  break;
+            case L_START:           c = 'S';  break;
+            case L_TERM:            c = 'T';  break;
+            case L_TRY: {
+                c = '-';
+                switch (layer[i*width + j].try) {
+                case S_TRY_WIRE_LEFT:   c = 'l';  break;
+                case S_TRY_WIRE_RIGHT:  c = 'r';  break;
+                case S_TRY_WIRE_UP:     c = 'u';  break;
+                case S_TRY_WIRE_DOWN:   c = 'd';  break;
+
+                case T_TRY_WIRE_LEFT:   c = 'L';  break;
+                case T_TRY_WIRE_RIGHT:  c = 'R';  break;
+                case T_TRY_WIRE_UP:     c = 'U';  break;
+                case T_TRY_WIRE_DOWN:   c = 'D';  break;
+                }
+                break;
+            }
+            default:                c = '+';  break;
             }
             printf("%c",c);
         }

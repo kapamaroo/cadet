@@ -24,17 +24,17 @@ int main(int argc, char *argv[]) {
     analyse(&soc,wire_size);
 
     //print_layer(soc.layer,soc.grid_width,soc.grid_height);
-    int error = route_mikami(&soc,wire_size);
+    unsigned long failed = route_mikami(&soc,wire_size);
 
     //print_grid(soc.grid,soc.grid_width,soc.grid_height);
     print_layer(soc.layer,soc.grid_width,soc.grid_height);
 
-    if (error) {
-        printf("failed\n");
+    if (failed) {
+        printf("%lu netlists failed to route\n",failed);
         return 1;
     }
 
     //success!
-    printf("all netlists succesfully connected\n");
+    printf("all netlists succesfully routed\n");
     return 0;
 }
