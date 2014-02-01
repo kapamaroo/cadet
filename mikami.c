@@ -474,19 +474,23 @@ static void expand( struct ulong_size P, const unsigned char loop) {
     }
 }
 
-static void try_again(const unsigned char loop) {
+static int try_again(const unsigned char loop) {
     assert(loop > 1);
 
     unsigned long i;
     unsigned long j;
+    unsigned long empty = 0;
     for (i=0; i<height; ++i) {
         for (j=0; j<width; ++j) {
+            if (LAYER_STATUS(i,j) == L_EMPTY)
+                empty++;
             if (LAYER_STATUS(i,j) == L_TRY && LAYER_LOOP(i,j) == loop-1) {
                 struct ulong_size P = { .x = i, .y = j };
                 expand(P,loop);
             }
         }
     }
+    return empty == 0;
 }
 
 static int mikami(const struct ulong_size S, const struct ulong_size T) {
@@ -501,10 +505,11 @@ static int mikami(const struct ulong_size S, const struct ulong_size T) {
     expand_term(T,loop);
 
     int path_found = has_intersection(loop);
-    while (!path_found) {
+    int full = 0;
+    while (!path_found && !full) {
         if (loop == max_loop)  break;
         loop++;
-        try_again(loop);
+        full = try_again(loop);
         path_found = has_intersection(loop);
     }
     clean_layer();
@@ -516,6 +521,10 @@ static int mikami(const struct ulong_size S, const struct ulong_size T) {
 
     if (loop == max_loop) {
         fprintf(stderr,"max loop limit (%d) reached\n",max_loop);
+        return 1;
+    }
+    else if (full) {
+        fprintf(stderr,"layer is full (loop=%d)\n",loop);
         return 1;
     }
 #if 0
