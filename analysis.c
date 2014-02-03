@@ -9,6 +9,8 @@
 
 #define TOL 1e-5
 
+extern int print_warnings;
+
 static inline int __eq(const double a, const double b) {
     return fabs(a - b) <= TOL;
 }
@@ -121,22 +123,16 @@ void put_placement(struct placement_info *p, const double wire_size,
     assert(soc->grid);
     assert(soc->layer[0]);
 
-#if 1
-    assert(p->input_gates || p->output_gates);
-    //printf("___________________%lu\n",p->output_gates);
-#else
-    if (!p->input_gates && !p->output_gates)
-        printf(" * WARNING: unused placement '%s'\n",p->name);
-    else {
-        if (!p->output_gates)
-            printf(" * WARNING: unused output for placement '%s'\n",p->name);
-        else if (p->output_gates != 1)
-            printf(" * WARNING: multiple output for placement '%s'\n",p->name);
-
-        if (!p->input_gates)
-            printf(" * WARNING: no input for placement '%s'\n",p->name);
-    }
-#endif
+    if (print_warnings < 2)
+        ;  //ok
+    else if (p->input_gates && p->output_gates)
+        ;  //ok
+    else if (!p->input_gates && !p->output_gates)
+        fprintf(stderr,"***  WARNING  ***  unused placement '%s'\n",p->name);
+    else if (!p->output_gates)
+        fprintf(stderr,"***  WARNING  ***  unused output for placement '%s'\n",p->name);
+    else if (!p->input_gates)
+        fprintf(stderr,"***  WARNING  ***  no input for placement '%s'\n",p->name);
 
     //reminder: bottom left point placement
     p->cell->dim.usize.x = floor(p->cell->dim.fsize.x / wire_size);
@@ -167,8 +163,11 @@ void put_placement(struct placement_info *p, const double wire_size,
         for (j=start_y; j<end_y; ++j)
             soc->grid[i*soc->grid_width + j] = G_BLOCKED;
 
-    assert(p->output_gates <= 1);
-    //+1 for the output
+    if (p->output_gates == 0 && print_warnings >= 2) {
+        fprintf(stderr,"***  WARNING  ***  unused output of placement '%s'\n",
+                p->name);
+    }
+    //consider just one output
     unsigned long total_io = p->input_gates + 1;
     unsigned long space = (end_y - start_y)/(total_io+1);
 

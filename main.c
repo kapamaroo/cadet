@@ -7,6 +7,12 @@
 
 #define DEFAULT_WIRE_SIZE 0.01
 
+int print_layers = 1;
+
+//set bigger values for more warning/status messages
+int print_status = 1;
+int print_warnings = 1;
+
 void print_help() {
     printf("$cadet libcell.txt chip_dimension.txt placement.txt netlist.txt [wire_size]\n\n");
 }
@@ -29,14 +35,14 @@ int main(int argc, char *argv[]) {
 
     //print_grid(soc.grid,soc.grid_width,soc.grid_height);
 
-#if 1
-    unsigned long i;
-    for (i=0; i<soc.layer_num; ++i) {
-        printf("LAYER %lu\n",i);
-        print_layer(soc.layer[i],soc.grid_width,soc.grid_height);
-        printf("\n");
+    if (print_layers) {
+        unsigned long i;
+        for (i=0; i<soc.layer_num; ++i) {
+            printf("LAYER %lu\n",i);
+            print_layer(soc.layer[i],soc.grid_width,soc.grid_height);
+            printf("\n");
+        }
     }
-#endif
 
     if (failed)
         fprintf(stderr,"%lu netlists failed to route in %lu wire layers\n",

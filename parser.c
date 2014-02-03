@@ -7,6 +7,8 @@
 #include "parser.h"
 #include "analysis.h"
 
+extern int print_warnings;
+
 struct chip_info parse_chip_dim(struct file_info *input);
 struct pool_info parse_libcell(struct file_info *input);
 struct pool_info parse_placement(struct file_info *input, struct pool_info libcell);
@@ -46,7 +48,7 @@ static void check_net(struct net_info *net) {
         assert(net->num_drain >= 1);
         //some outputs connect to more than 1 cells ??
         //break;  //disable warning
-        if (net->num_drain > 1) {
+        if (net->num_drain > 1 && print_warnings) {
             printf(" * WARNING: multiple inputs/cells connected to output:");
             printf("   %lu-to-1:    {",net->num_drain);
             unsigned long i;
@@ -157,7 +159,7 @@ struct pool_info parse_libcell(struct file_info *input) {
         cell->dim.fsize.y = parse_value(input,NULL,"size y");
 
         int bad_chars = discard_line(input);
-        if (bad_chars)
+        if (bad_chars && print_warnings)
             printf("%s:***  WARNING  ***  %d bad characters at end of line %lu\n",
                    __FUNCTION__,bad_chars,input->line_num);
         parse_eat_newline(input);
@@ -222,7 +224,7 @@ struct pool_info parse_placement(struct file_info *input, struct pool_info libce
         placement->dim.fsize.y = parse_value(input,NULL,"placement y");
 
         int bad_chars = discard_line(input);
-        if (bad_chars)
+        if (bad_chars && print_warnings)
             printf("%s:***  WARNING  ***  %d bad characters at end of line %lu\n",
                    __FUNCTION__,bad_chars,input->line_num);
         parse_eat_newline(input);
@@ -268,8 +270,7 @@ struct pool_info parse_netlist(struct file_info *input, struct pool_info placeme
             exit(EXIT_FAILURE);
         }
 
-        //just one output
-        net->source->output_gates = 1;
+        net->source->output_gates++;
         free(source_name);
 
         while (*input->pos != ';' && net->num_drain < MAX_NET_DRAIN) {
@@ -293,7 +294,7 @@ struct pool_info parse_netlist(struct file_info *input, struct pool_info placeme
             input->pos++;
 
         int bad_chars = discard_line(input);
-        if (bad_chars)
+        if (bad_chars && print_warnings)
             printf("%s:***  WARNING  ***  %d bad characters at end of line %lu\n",
                    __FUNCTION__,bad_chars,input->line_num);
         parse_eat_newline(input);

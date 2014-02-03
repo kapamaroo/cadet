@@ -3,6 +3,8 @@
 #include "analysis.h"
 #include "toolbox.h"
 
+extern int print_status;
+
 #ifdef MIN
 #undef MIN
 #endif
@@ -86,7 +88,9 @@ static unsigned long mikami_one_layer(struct analysis_info *soc) {
         struct net_info *netlist = (struct net_info *)(soc->netlist.data) + i;
         for (j=0; j<netlist->num_drain; ++j,++net) {
             if (netlist->successfully_routed[j]) {
-                //fprintf(stderr,"   skip %4lu (routed in layer %d)\n", net,netlist->successfully_routed[j]);
+                if (print_status >= 2)
+                    fprintf(stderr,"   skip %4lu (routed in layer %d)\n",
+                            net,netlist->successfully_routed[j]);
                 continue;
             }
             unsigned long next_input = netlist->drain[j]->next_free_input_slot;
@@ -637,7 +641,8 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
     //return 0 on success
 
     if (!max_loop) {
-        fprintf(stderr,"in mikami() call: no max_loop limit, fail\n");
+        if (print_status >= 3)
+            fprintf(stderr,"in mikami() call: no max_loop limit, fail\n");
         return 1;
     }
 
@@ -663,18 +668,18 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
     //LAYER(S.x,S.y).status = L_START;
     //LAYER(T.x,T.y).status = L_TERM;
 
-#if 0
-    fprintf(stderr,"net     %4lu ",net);
-    if (path_found == 1)
-        //if (loop != 1)
-        fprintf(stderr,"routed: loop %4d\n",loop);
-    else if (path_found == 2)
-        fprintf(stderr,"routed: loop %4d (fast path)\n",loop);
-    else if (loop == max_loop)
-        fprintf(stderr,"failed: max loop limit (%d) reached\n",max_loop);
-    else if (full)
-        fprintf(stderr,"failed: layer is full (loop=%d)\n",loop);
-#endif
+    if (print_status >= 2) {
+        fprintf(stderr,"net     %4lu ",net);
+        if (path_found == 1)
+            //if (loop != 1)
+            fprintf(stderr,"routed: loop %4d\n",loop);
+        else if (path_found == 2)
+            fprintf(stderr,"routed: loop %4d (fast path)\n",loop);
+        else if (loop == max_loop)
+            fprintf(stderr,"failed: max loop limit (%d) reached\n",max_loop);
+        else if (full)
+            fprintf(stderr,"failed: layer is full (loop=%d)\n",loop);
+    }
     return path_found ? 0 : 1;
 }
 
@@ -702,6 +707,7 @@ static layer_element *create_layer(struct analysis_info *soc) {
     }
 
     soc->layer[soc->layer_num++] = new_layer;
-    fprintf(stderr,"new wire layer (%lu)\n",soc->layer_num);
+    if (print_status >= 1)
+        fprintf(stderr,"new wire layer (%lu)\n",soc->layer_num);
     return new_layer;
 }
