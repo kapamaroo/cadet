@@ -302,8 +302,11 @@ void clear(struct analysis_info *soc) {
     }
     free(soc->netlist.data);
 
-    for (i=0; i<soc->layer_num; ++i)
+    for (i=0; i<soc->layer_num; ++i) {
+        if (!soc->layer[i])
+            break;
         free(soc->layer[i]);
+    }
 
     memset(soc,0,sizeof(struct analysis_info));
 }

@@ -43,6 +43,8 @@ int main(int argc, char *argv[]) {
     if (print_layers) {
         unsigned long i;
         for (i=0; i<soc.layer_num; ++i) {
+            if (!soc.layer[i])
+                break;
             printf("LAYER %lu\n",i);
             print_layer(soc.layer[i],soc.grid_width,soc.grid_height);
             printf("\n");

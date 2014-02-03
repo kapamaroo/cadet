@@ -57,6 +57,15 @@ static void assure_io(const struct ulong_size S, const struct ulong_size T) {
 #endif
 }
 
+static void reset_layer();
+static layer_element *__reset_layer(struct analysis_info *soc) {
+    reset_layer();
+    soc->layer_num++;
+    if (print_status >= 1)
+        fprintf(stderr,"new wire layer (%lu)\n",soc->layer_num);
+    return layer;
+}
+
 unsigned long route_mikami(struct analysis_info *soc) {
     //work on last layer
     assert(soc->layer_num == 1);
@@ -77,7 +86,8 @@ unsigned long route_mikami(struct analysis_info *soc) {
         else if (prev_failed_nets == failed_nets)
             break;
         //set global variable
-        layer = create_layer(soc);
+        //layer = create_layer(soc);
+        layer = __reset_layer(soc);
         if (!layer) {
             break;
         }
@@ -704,15 +714,6 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
 
 static layer_element *create_layer(struct analysis_info *soc) {
     assert(soc);
-
-    if (print_status >= 1)
-        fprintf(stderr,"new wire layer (%lu)\n",soc->layer_num);
-
-#if 1
-    reset_layer();
-    soc->layer_num++;
-    return layer;
-#endif
 
     if (soc->layer_num == MAX_LAYERS) {
         printf("Cannot create more layers (MAX_LAYERS = %d)\n",MAX_LAYERS);
