@@ -49,10 +49,13 @@ struct _layer_element_ {
     unsigned char status;  //uses the lower 4 bits only
     unsigned char try;     //[  hi 4 bits for term  |  low 4 bits for source  ]
     unsigned char loop;    //starts from 1, only for L_TRY_* and intersections
+    unsigned char _pad_;   //keep valgrind happy
 };
 
 typedef unsigned char grid_element;
 typedef struct _layer_element_ layer_element;
+
+#define MAX_LAYERS 8
 
 struct analysis_info {
     struct chip_info chip;
@@ -68,7 +71,9 @@ struct analysis_info {
     unsigned long grid_height;
 
     grid_element *grid;
-    layer_element *layer;
+
+    layer_element *layer[MAX_LAYERS];
+    unsigned long layer_num;
 };
 
 void analyse(struct analysis_info *soc, const double wire_size);
@@ -76,5 +81,6 @@ void print_grid(grid_element *layer,
                 const unsigned long width,const unsigned long height);
 void print_layer(layer_element *layer,
                  const unsigned long width,const unsigned long height);
+void clear(struct analysis_info *soc);
 
 #endif

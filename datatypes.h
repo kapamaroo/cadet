@@ -64,6 +64,7 @@ struct net_info {
 
     struct placement_info *source;
     struct placement_info *drain[MAX_NET_DRAIN];
+    int successfully_routed[MAX_NET_DRAIN];
     unsigned long num_drain;
 
     /*

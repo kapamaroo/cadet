@@ -21,20 +21,30 @@ int main(int argc, char *argv[]) {
     parse(argv[1],argv[2],argv[3],argv[4],&soc);
 
     double wire_size = (argc == 6) ? atof(argv[5]) : DEFAULT_WIRE_SIZE;
+    fprintf(stderr,"use wire size %g\n",wire_size);
     analyse(&soc,wire_size);
 
     //print_layer(soc.layer,soc.grid_width,soc.grid_height);
-    unsigned long failed = route_mikami(&soc,wire_size);
+    unsigned long failed = route_mikami(&soc);
 
     //print_grid(soc.grid,soc.grid_width,soc.grid_height);
-    print_layer(soc.layer,soc.grid_width,soc.grid_height);
 
-    if (failed) {
-        printf("%lu netlists failed to route\n",failed);
-        return 1;
+#if 0
+    unsigned long i;
+    for (i=0; i<soc.layer_num; ++i) {
+        printf("LAYER %lu\n",i);
+        print_layer(soc.layer[i],soc.grid_width,soc.grid_height);
+        printf("\n");
     }
+#endif
 
-    //success!
-    printf("all netlists succesfully routed\n");
+    if (failed)
+        printf("%lu netlists failed to route in %lu wire layers\n",
+               failed,soc.layer_num);
+    else
+        printf("all netlists succesfully routed in %lu wire layers\n",
+               soc.layer_num);
+
+    clear(&soc);
     return 0;
 }

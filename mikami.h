@@ -3,6 +3,6 @@
 
 struct analysis_info;
 
-unsigned long route_mikami(struct analysis_info *soc, const double wire_size);
+unsigned long route_mikami(struct analysis_info *soc);
 
 #endif

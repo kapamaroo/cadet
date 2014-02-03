@@ -24,5 +24,5 @@ FILES=`ls $TEST_DIR/dimensions`
 for i in $FILES;
 do
     echo "################  $i  ###################"
-    command $TOOL $TEST_DIR/$LIBCELL $TEST_DIR/dimensions/$i $TEST_DIR/legalized_cells/$i $TEST_DIR/nets/$i .01 > layer_$i.log
+    command $TOOL $TEST_DIR/$LIBCELL $TEST_DIR/dimensions/$i $TEST_DIR/legalized_cells/$i $TEST_DIR/nets/$i .5 #> layer_$i.log
 done

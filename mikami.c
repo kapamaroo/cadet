@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "analysis.h"
+#include "toolbox.h"
 
 static layer_element *layer = NULL;
 static unsigned long width = 0;
@@ -11,10 +12,13 @@ static unsigned long height = 0;
 #define LAYER_TRY(x,y)    (LAYER(x,y).try)
 #define LAYER_LOOP(x,y)   (LAYER(x,y).loop)
 
-static int mikami(const struct ulong_size S, const struct ulong_size T);
+static int mikami(const struct ulong_size S, const struct ulong_size T,
+                  const unsigned char max_loop, const unsigned long net);
+static unsigned long mikami_one_layer(struct analysis_info *soc);
+static layer_element *create_layer(struct analysis_info *soc);
 
 static void assure_io(const struct ulong_size S, const struct ulong_size T) {
-#if 1
+#if 0
     assert(LAYER_STATUS(S.x,S.y) == L_IO);
     assert(LAYER_STATUS(T.x,T.y) == L_IO);
     assert(LAYER_TRY(S.x,S.y) == TRY_EMPTY);
@@ -23,40 +27,61 @@ static void assure_io(const struct ulong_size S, const struct ulong_size T) {
     assert(LAYER_LOOP(T.x,T.y) == 0);
 #else
     if (LAYER_STATUS(S.x,S.y) != L_IO) {
-        printf("------%d------\n",LAYER_STATUS(S.x,S.y));
+        printf("------S %d------\n",LAYER_STATUS(S.x,S.y));
         assert(0);
     }
     if (LAYER_STATUS(T.x,T.y) != L_IO) {
-        printf("------%d------\n",LAYER_STATUS(T.x,T.y));
+        printf("------T %d------\n",LAYER_STATUS(T.x,T.y));
         assert(0);
     }
 #endif
 }
 
-unsigned long route_mikami(struct analysis_info *soc, const double wire_size) {
-    layer = soc->layer;
+unsigned long route_mikami(struct analysis_info *soc) {
+    //work on last layer
+    assert(soc->layer_num == 1);
+    layer = soc->layer[soc->layer_num - 1];
+    assert(layer);
     width = soc->grid_width;
     height = soc->grid_height;
 
+    unsigned long failed_nets = 0;
+    while (1) {
+        failed_nets = mikami_one_layer(soc);
+        if (!failed_nets)
+            break;
+        //set global variable
+        layer = create_layer(soc);
+        if (!layer)
+            return failed_nets;
+    }
+    return 0;
+}
+
+static unsigned long mikami_one_layer(struct analysis_info *soc) {
     unsigned long i;
     unsigned long j;
     unsigned long net = 0;
     unsigned long failed = 0;
-
+    unsigned char max_loop = 254;
     for (i=0; i<soc->netlist.next; ++i) {
         struct net_info *netlist = (struct net_info *)(soc->netlist.data) + i;
-        for (j=0; j<netlist->num_drain; ++j) {
-            net++;
+        for (j=0; j<netlist->num_drain; ++j,++net) {
+            if (netlist->successfully_routed[j])
+                continue;
+#if 0
             //printf("__________    routing net %4lu ...\n",net);
+            failed++;
+#else
             unsigned long next_input = netlist->drain[j]->next_free_input_slot++;
-            int error = mikami(netlist->source->output_slot.usize,
-                               netlist->drain[j]->input_slots[next_input].usize);
-            if (error) {
+            struct ulong_size S = netlist->source->output_slot.usize;
+            struct ulong_size T = netlist->drain[j]->input_slots[next_input].usize;
+            int error = mikami(S,T,max_loop,net);
+            if (error)
                 failed++;
-                //return failed;  //abort routing
-                fprintf(stderr,"netlist %lu failed\n",net);
-                break;            //ignore netlist
-            }
+            else
+                netlist->successfully_routed[j] = 1;
+#endif
         }
     }
     return failed;
@@ -353,7 +378,7 @@ static void mark_path(const struct ulong_size p, const unsigned char loop) {
             break;
         default:
 #if 1
-            printf("\n_____________________status=%d\ttry=%d\tloop=%d\n",
+            printf("\n_____________________status=0x%02x\ttry=0x%02x\tloop=%d\n",
                    LAYER_STATUS(p.x,p.y),
                    LAYER_TRY(p.x,p.y),
                    LAYER_LOOP(p.x,p.y));
@@ -493,12 +518,17 @@ static int try_again(const unsigned char loop) {
     return empty == 0;
 }
 
-static int mikami(const struct ulong_size S, const struct ulong_size T) {
+static int mikami(const struct ulong_size S, const struct ulong_size T,
+                  const unsigned char max_loop, const unsigned long net) {
     //return 0 on success
+
+    if (!max_loop) {
+        fprintf(stderr,"in mikami() call: no max_loop limit, fail\n");
+        return 1;
+    }
 
     assure_io(S,T);
 
-    const unsigned char max_loop = 254;
     unsigned char loop = 1;
 
     expand_source(S,loop);
@@ -519,18 +549,42 @@ static int mikami(const struct ulong_size S, const struct ulong_size T) {
     //LAYER(S.x,S.y).status = L_START;
     //LAYER(T.x,T.y).status = L_TERM;
 
-    if (loop == max_loop) {
-        fprintf(stderr,"max loop limit (%d) reached\n",max_loop);
-        return 1;
-    }
-    else if (full) {
-        fprintf(stderr,"layer is full (loop=%d)\n",loop);
-        return 1;
-    }
-#if 0
-    else if (loop != 1)
-        fprintf(stderr,"#####    loop %4d\n",loop);
-#endif
+    fprintf(stderr,"netlist %4lu ",net);
+    //success
+    if (path_found)
+        //if (loop != 1)
+        fprintf(stderr,"routed: loop %4d\n",loop);
+    else if (loop == max_loop)
+        fprintf(stderr,"failed: max loop limit (%d) reached\n",max_loop);
+    else if (full)
+        fprintf(stderr,"failed: layer is full (loop=%d)\n",loop);
+    return path_found ? 0 : 1;
+}
 
-    return 0;
+static layer_element *create_layer(struct analysis_info *soc) {
+    assert(soc);
+
+    if (soc->layer_num == MAX_LAYERS) {
+        printf("Cannot create more layers (MAX_LAYERS = %d)\n",MAX_LAYERS);
+        return NULL;
+    }
+
+    layer_element *new_layer = NULL;
+    new_layer = (layer_element *)_calloc(soc->grid_width * soc->grid_height,
+                                         sizeof(layer_element));
+
+    assert(soc->layer_num > 0);
+    unsigned long i;
+    unsigned long j;
+    for (i=0; i<height; ++i) {
+        for (j=0; j<width; ++j) {
+            unsigned long idx = i*soc->grid_width + j;
+            if (LAYER_STATUS(i,j) == L_IO)
+                new_layer[idx].status = L_IO;
+        }
+    }
+
+    soc->layer[soc->layer_num++] = new_layer;
+    fprintf(stderr,"new wire layer (%lu)\n",soc->layer_num);
+    return new_layer;
 }

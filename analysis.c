@@ -5,6 +5,7 @@
 #include <assert.h>
 
 #include "analysis.h"
+#include "toolbox.h"
 
 #define TOL 1e-5
 
@@ -112,31 +113,13 @@ static void check_analysis(struct analysis_info *a) {
     }
 }
 
-static inline void *_malloc(size_t size) {
-    void *ptr = malloc(size);
-    if (!ptr) {
-        perror(__FUNCTION__);
-        exit(EXIT_FAILURE);
-    }
-    return ptr;
-}
-
-static inline void *_calloc(size_t nmemb, size_t size) {
-    void *ptr = calloc(nmemb,size);
-    if (!ptr) {
-        perror(__FUNCTION__);
-        exit(EXIT_FAILURE);
-    }
-    return ptr;
-}
-
 void put_placement(struct placement_info *p, const double wire_size,
                    struct analysis_info *soc) {
     assert(p);
     assert(p->type == I_CELL);
     assert(soc);
     assert(soc->grid);
-    assert(soc->layer);
+    assert(soc->layer[0]);
 
 #if 1
     assert(p->input_gates || p->output_gates);
@@ -200,7 +183,7 @@ void put_placement(struct placement_info *p, const double wire_size,
         p->input_slots[input_slot].usize.x = i;
         p->input_slots[input_slot].usize.y = j;
 
-        soc->layer[i*soc->grid_width + j].status = L_IO;
+        soc->layer[0][i*soc->grid_width + j].status = L_IO;
     }
 
     //find output's coordinates
@@ -208,7 +191,7 @@ void put_placement(struct placement_info *p, const double wire_size,
 
     p->output_slot.usize.x = i;
     p->output_slot.usize.y = j;
-    soc->layer[i*soc->grid_width + j].status = L_IO;
+    soc->layer[0][i*soc->grid_width + j].status = L_IO;
 }
 
 void put_chip_io(struct placement_info *io, const double wire_size,
@@ -216,36 +199,42 @@ void put_chip_io(struct placement_info *io, const double wire_size,
     assert(io);
     assert(io->type == I_INPUT || io->type == I_OUTPUT);
     assert(soc);
-    assert(soc->layer);
+    assert(soc->layer[0]);
 
     io->dim.usize.x = floor(io->dim.fsize.x / wire_size);
     io->dim.usize.y = floor(io->dim.fsize.y / wire_size);
     unsigned long x = io->dim.usize.x;
     unsigned long y = io->dim.usize.y;
 
+    //if on boundary, put them inside chip
+    if (x == soc->grid_height)
+        x--;
+    if (y == soc->grid_width)
+        y--;
+
     io->output_slot.usize.x = x;
     io->output_slot.usize.y = y;
 
-    soc->layer[x*soc->grid_width + y].status = L_IO;
+    soc->layer[0][x*soc->grid_width + y].status = L_IO;
 }
 
-static void create_grid_and_layers(struct analysis_info *soc, const double wire_size) {
-    assert(wire_size != 0.0);
+static void create_grid_and_layers(struct analysis_info *soc) {
+    double wire_size = soc->wire_size;
 
     soc->chip.dim.usize.x = floor(soc->chip.dim.fsize.x / wire_size);
     soc->chip.dim.usize.y = floor(soc->chip.dim.fsize.y / wire_size);
     double cell_grid_x = soc->chip.dim.usize.x;
     double cell_grid_y = soc->chip.dim.usize.y;
 
-    soc->wire_size = wire_size;
     soc->grid_width = cell_grid_x;
     soc->grid_height = cell_grid_y;
 
     soc->grid = (grid_element *)_calloc(soc->grid_width * soc->grid_height,
                                         sizeof(grid_element));
 
-    soc->layer = (layer_element *)_calloc(soc->grid_width * soc->grid_height,
-                                          sizeof(layer_element));
+    soc->layer[0] = (layer_element *)_calloc(soc->grid_width * soc->grid_height,
+                                             sizeof(layer_element));
+    soc->layer_num = 1;
 
     //set placement on grid
 
@@ -262,10 +251,46 @@ static void create_grid_and_layers(struct analysis_info *soc, const double wire_
     }
 
     //print_grid(soc->grid,soc->grid_width,soc->grid_height);
-    //print_layer(soc->layer,soc->grid_width,soc->grid_height);
+    //print_layer(soc->layer[0],soc->grid_width,soc->grid_height);
 }
 
 void analyse(struct analysis_info *soc, const double wire_size) {
     check_analysis(soc);
-    create_grid_and_layers(soc,wire_size);
+    assert(!__eq(wire_size,0.0));
+    soc->wire_size = wire_size;
+    create_grid_and_layers(soc);
+}
+
+void clear(struct analysis_info *soc) {
+    assert(soc);
+    free(soc->grid);
+
+    unsigned long i;
+
+    //the first 2 are static "input"/"output" strings, see parser.c
+    for (i=2; i<soc->libcell.next; ++i) {
+        struct libcell_info *libcell =
+            (struct libcell_info *)(soc->libcell.data) + i;
+        free(libcell->name);
+    }
+    free(soc->libcell.data);
+
+    for (i=0; i<soc->placement.next; ++i) {
+        struct placement_info *placement =
+            (struct placement_info *)(soc->placement.data) + i;
+        free(placement->name);
+    }
+    free(soc->placement.data);
+
+    for (i=0; i<soc->netlist.next; ++i) {
+        struct net_info *net =
+            (struct net_info *)(soc->netlist.data) + i;
+        free(net->name);
+    }
+    free(soc->netlist.data);
+
+    for (i=0; i<soc->layer_num; ++i)
+        free(soc->layer[i]);
+
+    memset(soc,0,sizeof(struct analysis_info));
 }
