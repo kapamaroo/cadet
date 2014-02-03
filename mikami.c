@@ -60,7 +60,7 @@ static void assure_io(const struct ulong_size S, const struct ulong_size T) {
 }
 
 static void reset_layer();
-static layer_element *__reset_layer(struct analysis_info *soc) {
+static inline layer_element *__reset_layer(struct analysis_info *soc) {
     reset_layer();
     soc->layer_num++;
     return layer;
@@ -744,7 +744,7 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
     return path_found ? 0 : 1;
 }
 
-static layer_element *create_layer(struct analysis_info *soc) {
+static inline layer_element *create_layer(struct analysis_info *soc) {
     assert(soc);
 
     if (soc->layer_num == MAX_LAYERS) {
