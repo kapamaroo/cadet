@@ -34,7 +34,6 @@ static inline unsigned char GET_LAYER_STATUS(unsigned long x, unsigned long y) {
     unsigned char s = LAYER_STATUS(x,y);
     if (s & L_TRY)
         return L_TRY;
-    //assert(s == L_EMPTY || s == L_IO || s == L_WIRE || s == L_VIA);
     return LAYER(x,y).loop_status;
 }
 
