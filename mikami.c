@@ -38,7 +38,7 @@ static unsigned long mikami_one_layer(struct analysis_info *soc,
 static layer_element *create_layer(struct analysis_info *soc);
 
 static void assure_io(const struct ulong_size S, const struct ulong_size T) {
-#if 0
+#if 1
     assert(LAYER_STATUS(S.x,S.y) == L_IO);
     assert(LAYER_STATUS(T.x,T.y) == L_IO);
     assert(LAYER_TRY(S.x,S.y) == TRY_EMPTY);
@@ -47,12 +47,14 @@ static void assure_io(const struct ulong_size S, const struct ulong_size T) {
     assert(LAYER_LOOP(T.x,T.y) == 0);
 #else
     if (LAYER_STATUS(S.x,S.y) != L_IO) {
-        printf("------S %d------\n",LAYER_STATUS(S.x,S.y));
+        fprintf(stderr,"------S %d------\n",LAYER_STATUS(S.x,S.y));
         assert(0);
+        exit(EXIT_FAILURE);
     }
     if (LAYER_STATUS(T.x,T.y) != L_IO) {
-        printf("------T %d------\n",LAYER_STATUS(T.x,T.y));
+        fprintf(stderr,"------T %d------\n",LAYER_STATUS(T.x,T.y));
         assert(0);
+        exit(EXIT_FAILURE);
     }
 #endif
 }
@@ -61,9 +63,19 @@ static void reset_layer();
 static layer_element *__reset_layer(struct analysis_info *soc) {
     reset_layer();
     soc->layer_num++;
-    if (print_status >= 1)
-        fprintf(stderr,"new wire layer (%lu)\n",soc->layer_num);
     return layer;
+}
+
+static unsigned long layer_wire_length(const unsigned long via_factor) {
+    unsigned long len = 0;
+    unsigned long idx;
+    for (idx=0; idx<width*height; ++idx) {
+        if (layer[idx].status == L_WIRE)
+            len++;
+        if (layer[idx].status == L_VIA)
+            len += 1 + via_factor;
+    }
+    return len;
 }
 
 unsigned long route_mikami(struct analysis_info *soc) {
@@ -74,25 +86,39 @@ unsigned long route_mikami(struct analysis_info *soc) {
     width = soc->grid_width;
     height = soc->grid_height;
 
-    const loop_type max_loop = soc->max_loop;
+    printf("Total %4lu nets to route ...\n",soc->pending_nets);
 
-    unsigned long failed_nets = 0;
-    unsigned long prev_failed_nets = 0;
+    const loop_type max_loop = soc->max_loop;
+    const double total_nets = soc->pending_nets;
     while (1) {
-        prev_failed_nets = failed_nets;
+        unsigned long failed_nets;
+        unsigned long routed_nets;
+
         failed_nets = mikami_one_layer(soc,max_loop);
+        routed_nets = soc->pending_nets - failed_nets;
+        soc->pending_nets = failed_nets;
+
+        if (routed_nets) {
+            double wire_len = layer_wire_length(soc->layer_num) * soc->wire_size;
+            soc->wire_len += wire_len;
+            if (print_status >= 1)
+                printf("wire layer #%03lu  %4lu nets routed (%05.2f%%), wire length %9.2f\n",
+                       soc->layer_num,routed_nets,
+                       routed_nets/total_nets*100,wire_len);
+        }
+
         if (!failed_nets)
             break;
-        else if (prev_failed_nets == failed_nets)
+        else if (!routed_nets)
             break;
+
         //set global variable
         //layer = create_layer(soc);
         layer = __reset_layer(soc);
-        if (!layer) {
+        if (!layer)
             break;
-        }
     }
-    return failed_nets;
+    return soc->pending_nets;
 }
 
 static unsigned long mikami_one_layer(struct analysis_info *soc,
@@ -106,8 +132,8 @@ static unsigned long mikami_one_layer(struct analysis_info *soc,
         for (j=0; j<netlist->num_drain; ++j,++net) {
             if (netlist->successfully_routed[j]) {
                 if (print_status >= 2)
-                    fprintf(stderr,"   skip %4lu (routed in layer %d)\n",
-                            net,netlist->successfully_routed[j]);
+                    printf("   skip %4lu (routed in layer %d)\n",
+                           net,netlist->successfully_routed[j]);
                 continue;
             }
             unsigned long next_input = netlist->drain[j]->next_free_input_slot;
@@ -329,11 +355,12 @@ static void mark_path(const struct ulong_size P, const loop_type loop,
 
 #define MARK_PATH_FAILURE_CODE                                          \
     do {                                                                \
-        printf("\n____status=0x%02x\ttry=0x%02x\tloop=%d\n",            \
-               LAYER_STATUS(P.x,P.y),                                   \
-               LAYER_TRY(P.x,P.y),                                      \
-               LAYER_LOOP(P.x,P.y));                                    \
+        fprintf(stderr,"\n____status=0x%02x\ttry=0x%02x\tloop=%d\n",    \
+                LAYER_STATUS(P.x,P.y),                                  \
+                LAYER_TRY(P.x,P.y),                                     \
+                LAYER_LOOP(P.x,P.y));                                   \
         assert(0 && "mark_path() unknown intersection!");               \
+        exit(EXIT_FAILURE);                                             \
     } while (0);
 
     //mark the opposite directions
@@ -636,11 +663,12 @@ static void expand( struct ulong_size P, const loop_type loop) {
         try_right(P,loop,T_TRY_WIRE_RIGHT);
     }
     else {
-        printf("\n_____________________status=%d\ttry=%d\tloop=%d\n",
-               LAYER_STATUS(P.x,P.y),
-               LAYER_TRY(P.x,P.y),
-               LAYER_LOOP(P.x,P.y));
+        fprintf(stderr,"\n____status=%d\ttry=%d\tloop=%d\n",
+                LAYER_STATUS(P.x,P.y),
+                LAYER_TRY(P.x,P.y),
+                LAYER_LOOP(P.x,P.y));
         assert(0);
+        exit(EXIT_FAILURE);
     }
 }
 
@@ -657,12 +685,16 @@ static int try_again(const loop_type loop) {
             }
         }
     }
+#if 0
     unsigned long empty = 0;
     for (i=0; i<height; ++i)
         for (j=0; j<width; ++j)
             if (LAYER_STATUS(i,j) == L_EMPTY)
                 empty++;
     return empty == 0;
+#else
+    return 0;
+#endif
 }
 
 static int mikami(const struct ulong_size S, const struct ulong_size T,
@@ -698,16 +730,16 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
     //LAYER(T.x,T.y).status = L_TERM;
 
     if (print_status >= 2) {
-        fprintf(stderr,"net     %4lu ",net);
+        printf("net     %4lu ",net);
         if (path_found == 1)
             //if (loop != 1)
-            fprintf(stderr,"routed: loop %4d\n",loop);
+            printf("routed: loop %4d\n",loop);
         else if (path_found == 2)
-            fprintf(stderr,"routed: loop %4d (fast path)\n",loop);
+            printf("routed: loop %4d (fast path)\n",loop);
         else if (loop == max_loop)
-            fprintf(stderr,"failed: max loop limit (%d) reached\n",max_loop);
+            printf("failed: max loop limit (%d) reached\n",max_loop);
         else if (full)
-            fprintf(stderr,"failed: layer is full (loop=%d)\n",loop);
+            printf("failed: layer is full (loop=%d)\n",loop);
     }
     return path_found ? 0 : 1;
 }
@@ -736,7 +768,5 @@ static layer_element *create_layer(struct analysis_info *soc) {
     }
 
     soc->layer[soc->layer_num++] = new_layer;
-    if (print_status >= 1)
-        fprintf(stderr,"new wire layer (%lu)\n",soc->layer_num);
     return new_layer;
 }

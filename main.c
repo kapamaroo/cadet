@@ -7,7 +7,7 @@
 
 #define DEFAULT_WIRE_SIZE 0.01
 
-int print_layers = 1;
+int print_wire_layers = 1;
 
 //set bigger values for more warning/status messages
 int print_status = 1;
@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
     struct analysis_info soc;
     parse(argv[1],argv[2],argv[3],argv[4],&soc);
 
+    double total_nets = soc.pending_nets;
     double wire_size = (argc == 6) ? atof(argv[5]) : DEFAULT_WIRE_SIZE;
     fprintf(stderr,"use wire size %g\n",wire_size);
     analyse(&soc,wire_size);
@@ -40,23 +41,16 @@ int main(int argc, char *argv[]) {
 
     //print_grid(soc.grid,soc.grid_width,soc.grid_height);
 
-    if (print_layers) {
-        unsigned long i;
-        for (i=0; i<soc.layer_num; ++i) {
-            if (!soc.layer[i])
-                break;
-            printf("LAYER %lu\n",i);
-            print_layer(soc.layer[i],soc.grid_width,soc.grid_height);
-            printf("\n");
-        }
-    }
+    if (print_wire_layers)
+        print_layers(&soc);
 
-    if (failed)
-        printf("%lu netlists failed to route in %lu wire layers\n",
-                failed,soc.layer_num);
+    if (failed) {
+        printf("%lu nets (%05.2f%%) failed to route in %lu wire layers\n",
+               failed,failed/total_nets*100,soc.layer_num);
+    }
     else
-        printf("all netlists succesfully routed in %lu wire layers\n",
-                soc.layer_num);
+        printf("all nets succesfully routed in %lu wire layers, total wire length %f\n",
+               soc.layer_num,soc.wire_len);
 
     clear(&soc);
     return 0;

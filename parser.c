@@ -12,7 +12,8 @@ extern int print_warnings;
 struct chip_info parse_chip_dim(struct file_info *input);
 struct pool_info parse_libcell(struct file_info *input);
 struct pool_info parse_placement(struct file_info *input, struct pool_info libcell);
-struct pool_info parse_netlist(struct file_info *input, struct pool_info placement);
+struct pool_info parse_netlist(struct file_info *input,
+                               struct pool_info placement, unsigned long *nets);
 
 //debug function
 static void check_placement(struct placement_info *placement) {
@@ -88,7 +89,8 @@ void parse(const char *libcell, const char *chip_dim,
     close_file(&current_input);
 
     current_input = open_file(netlist);
-    struct pool_info _netlist = parse_netlist(current_input,_placement);
+    struct pool_info _netlist = parse_netlist(current_input,_placement,
+                                              &analysis->pending_nets);
     close_file(&current_input);
 
     analysis->chip = _chip;
@@ -244,7 +246,10 @@ static struct placement_info *get_placement(const char *name,struct pool_info po
     return NULL;
 }
 
-struct pool_info parse_netlist(struct file_info *input, struct pool_info placement){
+struct pool_info parse_netlist(struct file_info *input,
+                               struct pool_info placement, unsigned long *nets) {
+    *nets = 0;
+
     assert(input);
 
     struct pool_info output;
@@ -288,6 +293,7 @@ struct pool_info parse_netlist(struct file_info *input, struct pool_info placeme
             }
             net->drain[i]->input_gates++;
             assert(net->drain[i]->input_gates <= MAX_INPUT_SLOTS);
+            (*nets)++;
         }
 
         if (*input->pos == ';')

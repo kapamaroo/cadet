@@ -17,9 +17,9 @@ static inline int __eq(const double a, const double b) {
 
 static inline void print_placement(struct placement_info *p) {
     assert(p);
-    printf("%s %s %lf %lf\t#libcell size (x:%lf y:%lf)\n",
-           p->cell->name, p->name,p->dim.fsize.x,p->dim.fsize.y,
-           p->cell->dim.fsize.x,p->cell->dim.fsize.y);
+    fprintf(stderr, "%s %s %lf %lf\t#libcell size (x:%lf y:%lf)\n",
+            p->cell->name, p->name,p->dim.fsize.x,p->dim.fsize.y,
+            p->cell->dim.fsize.x,p->cell->dim.fsize.y);
 }
 
 void print_grid(grid_element *grid,
@@ -30,9 +30,20 @@ void print_grid(grid_element *grid,
     for (i=0; i<height; ++i) {
         for (j=0; j<width; ++j) {
             char value = grid[i*width + j] ? '#' : ' ';
-            printf("%c",value);
+            fprintf(stderr,"%c",value);
         }
-        printf("\n");
+        fprintf(stderr,"\n");
+    }
+}
+
+void print_layers(struct analysis_info *soc) {
+    unsigned long i;
+    for (i=0; i<soc->layer_num; ++i) {
+        if (!soc->layer[i])
+            break;
+        fprintf(stderr,"LAYER %lu\n",i);
+        print_layer(soc->layer[i],soc->grid_width,soc->grid_height);
+        fprintf(stderr,"\n");
     }
 }
 
@@ -42,7 +53,7 @@ void print_layer(layer_element *layer,
     unsigned long i;
     unsigned long j;
     for (i=0; i<height; ++i) {
-        printf("|");
+        fprintf(stderr,"|");
         for (j=0; j<width; ++j) {
             char c;
             switch (layer[i*width + j].status) {
@@ -69,9 +80,9 @@ void print_layer(layer_element *layer,
             }
             default:                c = '+';  break;
             }
-            printf("%c",c);
+            fprintf(stderr,"%c",c);
         }
-        printf("|\n");
+        fprintf(stderr,"|\n");
     }
 }
 
@@ -94,18 +105,18 @@ static void check_analysis(struct analysis_info *a) {
             if (!(p->dim.fsize.x + p->cell->dim.fsize.x < a->chip.dim.fsize.x ||
                   __eq(p->dim.fsize.x + p->cell->dim.fsize.x,a->chip.dim.fsize.x))) {
                 print_placement(p);
-                printf("chip size (width:%lf height:%lf)\n",
-                       a->chip.dim.fsize.x,a->chip.dim.fsize.y);
-                printf("placement on x puts cell out of chip - exit\n");
+                fprintf(stderr,"chip size (width:%lf height:%lf)\n",
+                        a->chip.dim.fsize.x,a->chip.dim.fsize.y);
+                printf("error: placement on x puts cell out of chip - exit\n");
                 exit(EXIT_FAILURE);
             }
 
             if (!(p->dim.fsize.y + p->cell->dim.fsize.y < a->chip.dim.fsize.y ||
                   __eq(p->dim.fsize.y + p->cell->dim.fsize.y,a->chip.dim.fsize.y))) {
                 print_placement(p);
-                printf("chip size (width:%lf height:%lf)\n",
-                       a->chip.dim.fsize.x,a->chip.dim.fsize.y);
-                printf("placement on y puts cell out of chip - exit\n");
+                fprintf(stderr,"chip size (width:%lf height:%lf)\n",
+                        a->chip.dim.fsize.x,a->chip.dim.fsize.y);
+                printf("error: placement on y puts cell out of chip - exit\n");
                 exit(EXIT_FAILURE);
             }
 
@@ -128,11 +139,11 @@ void put_placement(struct placement_info *p, const double wire_size,
     else if (p->input_gates && p->output_gates)
         ;  //ok
     else if (!p->input_gates && !p->output_gates)
-        fprintf(stderr,"***  WARNING  ***  unused placement '%s'\n",p->name);
+        printf("***  WARNING  ***  unused placement '%s'\n",p->name);
     else if (!p->output_gates)
-        fprintf(stderr,"***  WARNING  ***  unused output for placement '%s'\n",p->name);
+        printf("***  WARNING  ***  unused output for placement '%s'\n",p->name);
     else if (!p->input_gates)
-        fprintf(stderr,"***  WARNING  ***  no input for placement '%s'\n",p->name);
+        printf("***  WARNING  ***  no input for placement '%s'\n",p->name);
 
     //reminder: bottom left point placement
     p->cell->dim.usize.x = floor(p->cell->dim.fsize.x / wire_size);
@@ -142,7 +153,7 @@ void put_placement(struct placement_info *p, const double wire_size,
     unsigned long end_x = start_x + cell_x;
     if (end_x > soc->grid_height) {
         print_placement(p);
-        fprintf(stderr,"end_x     : %lu\ngrid_height: %lu\nexit\n",end_x,soc->grid_height);
+        printf("error: end_x=%lu\theight=%lu\texit\n",end_x,soc->grid_height);
         exit(EXIT_FAILURE);
     }
 
@@ -153,7 +164,7 @@ void put_placement(struct placement_info *p, const double wire_size,
     unsigned long end_y = start_y + cell_y;
     if (end_y > soc->grid_width) {
         print_placement(p);
-        fprintf(stderr,"end_y     : %lu\ngrid_width: %lu\nexit\n",end_y,soc->grid_width);
+        printf("error: end_y=%lu\twidth=%lu\texit\n",end_y,soc->grid_width);
         exit(EXIT_FAILURE);
     }
 
@@ -164,8 +175,7 @@ void put_placement(struct placement_info *p, const double wire_size,
             soc->grid[i*soc->grid_width + j] = G_BLOCKED;
 
     if (p->output_gates == 0 && print_warnings >= 2) {
-        fprintf(stderr,"***  WARNING  ***  unused output of placement '%s'\n",
-                p->name);
+        printf("***  WARNING  ***  unused output of placement '%s'\n",p->name);
     }
     //consider just one output
     unsigned long total_io = p->input_gates + 1;
@@ -221,10 +231,14 @@ void put_chip_io(struct placement_info *io, const double wire_size,
     if (x >= soc->grid_height) {
         fprintf(stderr,"x:(%g) : %lu >= %lu\n",io->dim.fsize.x,x,soc->grid_height);
         assert(0);
+        printf("error: io.x : out of bounds index - exit\n");
+        exit(EXIT_FAILURE);
     }
     if (y >= soc->grid_width) {
         fprintf(stderr,"y:(%g) : %lu >= %lu\n",io->dim.fsize.y,y,soc->grid_width);
         assert(0);
+        printf("error: io.y : out of bounds index - exit\n");
+        exit(EXIT_FAILURE);
     }
 
     io->output_slot.usize.x = x;

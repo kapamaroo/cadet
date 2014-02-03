@@ -70,6 +70,7 @@ struct analysis_info {
     struct pool_info netlist;
 
     double wire_size;
+    double wire_len;   //total for all layers
 
     //normalized (wire grid) dimensions regarding wire_size
     unsigned long grid_width;
@@ -81,11 +82,13 @@ struct analysis_info {
     unsigned long layer_num;
 
     loop_type max_loop;
+    unsigned long pending_nets;
 };
 
 void analyse(struct analysis_info *soc, const double wire_size);
 void print_grid(grid_element *layer,
                 const unsigned long width,const unsigned long height);
+void print_layers(struct analysis_info *soc);
 void print_layer(layer_element *layer,
                  const unsigned long width,const unsigned long height);
 void clear(struct analysis_info *soc);
