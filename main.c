@@ -13,7 +13,13 @@ int print_wire_layers = 1;
 int print_status = 1;
 int print_warnings = 1;
 
-loop_type max_loop = 16;  //MAX_LOOP;
+#ifdef MIN
+#undef MIN
+#endif
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+
+loop_type max_loop = MIN(16,MAX_LOOP);
+#undef MIN
 
 void print_help() {
     printf("$cadet libcell.txt chip_dimension.txt placement.txt netlist.txt [wire_size]\n\n");
