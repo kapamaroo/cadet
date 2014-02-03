@@ -172,9 +172,12 @@ void put_placement(struct placement_info *p, const double wire_size,
 
     unsigned long i;
     unsigned long j;
+
+#if 0
     for (i=start_x; i<end_x; ++i)
         for (j=start_y; j<end_y; ++j)
             soc->grid[i*soc->grid_width + j] = G_BLOCKED;
+#endif
 
     if (p->output_gates == 0 && print_warnings >= 2) {
         printf("***  WARNING  ***  unused output of placement '%s'\n",p->name);
@@ -264,8 +267,10 @@ static void create_grid_and_layers(struct analysis_info *soc) {
     soc->grid_width = soc->chip.dim.usize.y;
     soc->grid_height = soc->chip.dim.usize.x;
 
+#if 0
     soc->grid = (grid_element *)_calloc(soc->grid_width * soc->grid_height,
                                         sizeof(grid_element));
+#endif
 
     soc->layer[0] = (layer_element *)_calloc(soc->grid_width * soc->grid_height,
                                              sizeof(layer_element));
