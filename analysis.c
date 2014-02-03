@@ -179,15 +179,17 @@ void put_placement(struct placement_info *p, const double wire_size,
     }
     //consider just one output
     unsigned long total_io = p->input_gates + 1;
-    unsigned long space = (end_y - start_y)/(total_io+1);
+    unsigned long y_space = (end_y - start_y)/(total_io+1);
 
     //fixed xaxis
-    i = start_x + (end_x - start_x)/2;
+    //i = start_x + (end_x - start_x)/2;
+    unsigned long x_space = (end_x - start_x)/(total_io+1);
 
     //find inputs' coordinates
     unsigned long input_slot = 0;
     for (input_slot = 0; input_slot<p->input_gates; ++input_slot) {
-        j = start_y + (input_slot + 1) * space;
+        i = start_x + (input_slot + 1) * x_space;
+        j = start_y + (input_slot + 1) * y_space;
 
         p->input_slots[input_slot].usize.x = i;
         p->input_slots[input_slot].usize.y = j;
@@ -199,7 +201,8 @@ void put_placement(struct placement_info *p, const double wire_size,
     }
 
     //find output's coordinates
-    j = start_y + (total_io) * space;
+    i = start_x + (total_io) * x_space;
+    j = start_y + (total_io) * y_space;
 
     p->output_slot.usize.x = i;
     p->output_slot.usize.y = j;
