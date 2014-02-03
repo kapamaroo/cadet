@@ -31,7 +31,8 @@ int main(int argc, char *argv[]) {
     analyse(&soc,wire_size);
 
     //print_layer(soc.layer,soc.grid_width,soc.grid_height);
-    unsigned long failed = route_mikami(&soc);
+    unsigned long failed = 0;
+    failed = route_mikami(&soc);
 
     //print_grid(soc.grid,soc.grid_width,soc.grid_height);
 

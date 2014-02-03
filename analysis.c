@@ -140,9 +140,9 @@ void put_placement(struct placement_info *p, const double wire_size,
     unsigned long cell_x = p->cell->dim.usize.x;
     unsigned long start_x = p->dim.usize.x;
     unsigned long end_x = start_x + cell_x;
-    if (end_x > soc->grid_width) {
+    if (end_x > soc->grid_height) {
         print_placement(p);
-        printf("end_x     : %lu\ngrid_width: %lu\nexit\n",end_x,soc->grid_width);
+        fprintf(stderr,"end_x     : %lu\ngrid_height: %lu\nexit\n",end_x,soc->grid_height);
         exit(EXIT_FAILURE);
     }
 
@@ -151,9 +151,9 @@ void put_placement(struct placement_info *p, const double wire_size,
     unsigned long cell_y = p->cell->dim.usize.y;
     unsigned long start_y = p->dim.usize.y;
     unsigned long end_y = start_y + cell_y;
-    if (end_y > soc->grid_height) {
+    if (end_y > soc->grid_width) {
         print_placement(p);
-        printf("end_y : %lu\ncell_y: %lu\nexit\n",end_y,cell_y);
+        fprintf(stderr,"end_y     : %lu\ngrid_width: %lu\nexit\n",end_y,soc->grid_width);
         exit(EXIT_FAILURE);
     }
 
@@ -236,8 +236,8 @@ void put_chip_io(struct placement_info *io, const double wire_size,
 static void create_grid_and_layers(struct analysis_info *soc) {
     double wire_size = soc->wire_size;
 
-    soc->chip.dim.usize.x = floor(soc->chip.dim.fsize.x / wire_size);
-    soc->chip.dim.usize.y = floor(soc->chip.dim.fsize.y / wire_size);
+    soc->chip.dim.usize.x = ceil(soc->chip.dim.fsize.x / wire_size);
+    soc->chip.dim.usize.y = ceil(soc->chip.dim.fsize.y / wire_size);
 
     //chip height is the number of rows
     //chip width is the number of columns
@@ -265,9 +265,6 @@ static void create_grid_and_layers(struct analysis_info *soc) {
         else
             assert(0 && "bad placement type");
     }
-
-    //print_grid(soc->grid,soc->grid_width,soc->grid_height);
-    //print_layer(soc->layer[0],soc->grid_width,soc->grid_height);
 }
 
 void analyse(struct analysis_info *soc, const double wire_size) {

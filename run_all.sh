@@ -3,16 +3,17 @@
 if [ ! $# -eq 1 ]
 then
     echo
-    echo takes one parameter:  the EDA-testcase directory
+    echo takes one parameter:  the wire size
     echo example:
-    echo "          $0 EDA-testcase"
+    echo "          $0 wire_size"
     echo
     exit
 fi
 
 TOOL=`pwd`/cadet
 
-TEST_DIR="$1"
+WIRE_SIZE="$1"
+TEST_DIR="EDA-testcase"
 cd $TEST_DIR
 TEST_DIR=`pwd`
 cd -
@@ -24,5 +25,5 @@ FILES=`ls $TEST_DIR/dimensions`
 for i in $FILES;
 do
     echo "################  $i  ###################"
-    command $TOOL $TEST_DIR/$LIBCELL $TEST_DIR/dimensions/$i $TEST_DIR/legalized_cells/$i $TEST_DIR/nets/$i .1 > layer_$i.log
+    command $TOOL $TEST_DIR/$LIBCELL $TEST_DIR/dimensions/$i $TEST_DIR/legalized_cells/$i $TEST_DIR/nets/$i $WIRE_SIZE > layer_$i.log
 done
