@@ -56,7 +56,9 @@ void print_layer(layer_element *layer,
         fprintf(stderr,"|");
         for (j=0; j<width; ++j) {
             char c;
-            switch (layer[i*width + j].status) {
+            if (layer[i*width + j].loop_status & L_TRY)
+                layer[i*width + j].loop_status = L_TRY;
+            switch (layer[i*width + j].loop_status) {
             case L_EMPTY:           c = ' ';  break;
             case L_IO:              c = 'O';  break;
             case L_WIRE:            c = 'X';  break;
@@ -197,7 +199,7 @@ void put_placement(struct placement_info *p, const double wire_size,
         assert(i < soc->grid_height);
         assert(j < soc->grid_width);
 
-        soc->layer[0][i*soc->grid_width + j].status = L_IO;
+        soc->layer[0][i*soc->grid_width + j].loop_status = L_IO;
     }
 
     //find output's coordinates
@@ -210,7 +212,7 @@ void put_placement(struct placement_info *p, const double wire_size,
     assert(i < soc->grid_height);
     assert(j < soc->grid_width);
 
-    soc->layer[0][i*soc->grid_width + j].status = L_IO;
+    soc->layer[0][i*soc->grid_width + j].loop_status = L_IO;
 }
 
 void put_chip_io(struct placement_info *io, const double wire_size,
@@ -247,7 +249,7 @@ void put_chip_io(struct placement_info *io, const double wire_size,
     io->output_slot.usize.x = x;
     io->output_slot.usize.y = y;
 
-    soc->layer[0][x*soc->grid_width + y].status = L_IO;
+    soc->layer[0][x*soc->grid_width + y].loop_status = L_IO;
 }
 
 static void create_grid_and_layers(struct analysis_info *soc) {

@@ -13,10 +13,10 @@
 
 //status
 #define L_EMPTY            0
-#define L_IO              (1 << 0)
-#define L_WIRE            (1 << 1)
-#define L_VIA             (1 << 2)
-#define L_TRY             (1 << 3)
+#define L_TRY             (1 << 0)
+#define L_IO              (1 << 1)
+#define L_WIRE            (1 << 2)
+#define L_VIA             (1 << 3)
 
 #define L_START           (1 << 4)
 #define L_TERM            (1 << 5)
@@ -45,16 +45,12 @@
 #define S_TRY_HORIZONTAL (S_TRY_WIRE_LEFT | S_TRY_WIRE_RIGHT)
 #define S_TRY_VERTICAL   (S_TRY_WIRE_UP | S_TRY_WIRE_DOWN)
 
-#define MAX_LOOP 65535
-typedef unsigned short loop_type;
+#define MAX_LOOP 128
+typedef unsigned char loop_type;  //7 bits only, if low bit is 1 aka L_TRY
 
 struct _layer_element_ {
-    unsigned char status;  //uses the lower 4 bits only
+    unsigned char loop_status;  //uses the lower 4 bits only
     unsigned char try;     //[  hi 4 bits for term  |  low 4 bits for source  ]
-    loop_type loop;        //starts from 1, only for L_TRY_* and intersections
-#if 0
-    unsigned char _pad_;   //keep valgrind happy
-#endif
 };
 
 typedef unsigned char grid_element;

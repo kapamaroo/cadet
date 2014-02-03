@@ -27,9 +27,28 @@ static unsigned long height = 0;
 
 //they depend on global variables
 #define LAYER(x,y) (layer[(x)*width + (y)])
-#define LAYER_STATUS(x,y) (LAYER(x,y).status)
 #define LAYER_TRY(x,y)    (LAYER(x,y).try)
-#define LAYER_LOOP(x,y)   (LAYER(x,y).loop)
+#define LAYER_STATUS(x,y) ((LAYER(x,y)).loop_status)
+
+static inline unsigned char GET_LAYER_STATUS(unsigned long x, unsigned long y) {
+    unsigned char s = LAYER_STATUS(x,y);
+    if (s & L_TRY)
+        return L_TRY;
+    //assert(s == L_EMPTY || s == L_IO || s == L_WIRE || s == L_VIA);
+    return LAYER(x,y).loop_status;
+}
+
+static inline unsigned char GET_LAYER_LOOP(unsigned long x, unsigned long y) {
+    assert(LAYER_STATUS(x,y) & L_TRY);
+    return LAYER_STATUS(x,y) >> 1;
+}
+
+static inline void SET_LAYER_LOOP_TRY(unsigned long x, unsigned long y,
+                                      unsigned char loop) {
+    //assert((loop & 0x80) == 0 && "loop overflow");
+    //auto mark as L_TRY
+    LAYER_STATUS(x,y) = (loop << 1) | L_TRY;
+}
 
 static int mikami(const struct ulong_size S, const struct ulong_size T,
                   const loop_type max_loop, const unsigned long net);
@@ -39,20 +58,18 @@ static layer_element *create_layer(struct analysis_info *soc);
 
 static void assure_io(const struct ulong_size S, const struct ulong_size T) {
 #if 1
-    assert(LAYER_STATUS(S.x,S.y) == L_IO);
-    assert(LAYER_STATUS(T.x,T.y) == L_IO);
+    assert(GET_LAYER_STATUS(S.x,S.y) == L_IO);
+    assert(GET_LAYER_STATUS(T.x,T.y) == L_IO);
     assert(LAYER_TRY(S.x,S.y) == TRY_EMPTY);
     assert(LAYER_TRY(T.x,T.y) == TRY_EMPTY);
-    assert(LAYER_LOOP(S.x,S.y) == 0);
-    assert(LAYER_LOOP(T.x,T.y) == 0);
 #else
-    if (LAYER_STATUS(S.x,S.y) != L_IO) {
-        fprintf(stderr,"------S %d------\n",LAYER_STATUS(S.x,S.y));
+    if (GET_LAYER_STATUS(S.x,S.y) != L_IO) {
+        fprintf(stderr,"------S %d------\n",GET_LAYER_STATUS(S.x,S.y));
         assert(0);
         exit(EXIT_FAILURE);
     }
-    if (LAYER_STATUS(T.x,T.y) != L_IO) {
-        fprintf(stderr,"------T %d------\n",LAYER_STATUS(T.x,T.y));
+    if (GET_LAYER_STATUS(T.x,T.y) != L_IO) {
+        fprintf(stderr,"------T %d------\n",GET_LAYER_STATUS(T.x,T.y));
         assert(0);
         exit(EXIT_FAILURE);
     }
@@ -70,9 +87,9 @@ static unsigned long layer_wire_length(const unsigned long via_factor) {
     unsigned long len = 0;
     unsigned long idx;
     for (idx=0; idx<width*height; ++idx) {
-        if (layer[idx].status == L_WIRE)
+        if (layer[idx].loop_status == L_WIRE)
             len++;
-        if (layer[idx].status == L_VIA)
+        if (layer[idx].loop_status == L_VIA)
             len += 1 + via_factor;
     }
     return len;
@@ -86,6 +103,7 @@ unsigned long route_mikami(struct analysis_info *soc) {
     width = soc->grid_width;
     height = soc->grid_height;
 
+    assert(L_TRY == 1);
     printf("Total %4lu nets to route ...\n",soc->pending_nets);
 
     const loop_type max_loop = soc->max_loop;
@@ -151,15 +169,18 @@ static unsigned long mikami_one_layer(struct analysis_info *soc,
     return failed;
 }
 
-static inline int blocked(const layer_element el) {
-    const unsigned char s = el.status;
-    if (s == L_IO || s == L_WIRE || s == L_VIA)
-        return 1;
-    return 0;
+static inline int blocked(const unsigned long x, const unsigned long y) {
+    const unsigned char s = LAYER_STATUS(x,y);
+    if (s == L_EMPTY || (s & L_TRY))
+        return 0;
+    return 1;
 }
 
-static inline int available(const layer_element el, const loop_type loop) {
-    if (el.status == L_EMPTY || (el.status == L_TRY && el.loop == loop))
+static inline int available(const unsigned long x, const unsigned long y,
+                            const loop_type loop) {
+    if (LAYER_STATUS(x,y) == L_EMPTY)
+        return 1;
+    if (GET_LAYER_LOOP(x,y) == loop)
         return 1;
     return 0;
 }
@@ -171,23 +192,21 @@ static void try_left(struct ulong_size P, const loop_type loop,
         return;
     j--;
     while (j) {
-        if (blocked(LAYER(P.x,j)))
+        if (blocked(P.x,j))
             return;
-        if (!available(LAYER(P.x,j),loop))
+        if (!available(P.x,j,loop))
             return;
-        LAYER_STATUS(P.x,j) = L_TRY;
+        SET_LAYER_LOOP_TRY(P.x,j,loop);
         LAYER_TRY(P.x,j) |= direction;
-        LAYER_LOOP(P.x,j) = loop;
         j--;
     }
     //check first column
-    if (blocked(LAYER(P.x,0)))
+    if (blocked(P.x,0))
         return;
-    if (!available(LAYER(P.x,0),loop))
+    if (!available(P.x,0,loop))
         return;
-    LAYER_STATUS(P.x,0) = L_TRY;
+    SET_LAYER_LOOP_TRY(P.x,0,loop);
     LAYER_TRY(P.x,0) |= direction;
-    LAYER_LOOP(P.x,0) = loop;
 }
 
 static void try_right(struct ulong_size P, const loop_type loop,
@@ -195,13 +214,12 @@ static void try_right(struct ulong_size P, const loop_type loop,
     unsigned long j = P.y;
     j++;
     while (j < width) {
-        if (blocked(LAYER(P.x,j)))
+        if (blocked(P.x,j))
             return;
-        if (!available(LAYER(P.x,j),loop))
+        if (!available(P.x,j,loop))
             return;
-        LAYER_STATUS(P.x,j) = L_TRY;
+        SET_LAYER_LOOP_TRY(P.x,j,loop);
         LAYER_TRY(P.x,j) |= direction;
-        LAYER_LOOP(P.x,j) = loop;
         j++;
     }
 }
@@ -213,23 +231,21 @@ static void try_up(struct ulong_size P, const loop_type loop,
         return;
     i--;
     while (i) {
-        if (blocked(LAYER(i,P.y)))
+        if (blocked(i,P.y))
             return;
-        if (!available(LAYER(i,P.y),loop))
+        if (!available(i,P.y,loop))
             return;
-        LAYER_STATUS(i,P.y) = L_TRY;
+        SET_LAYER_LOOP_TRY(i,P.y,loop);
         LAYER_TRY(i,P.y) |= direction;
-        LAYER_LOOP(i,P.y) = loop;
         i--;
     }
     //check first row
-    if (blocked(LAYER(0,P.y)))
+    if (blocked(0,P.y))
         return;
-    if (!available(LAYER(0,P.y),loop))
+    if (!available(0,P.y,loop))
         return;
-    LAYER_STATUS(0,P.y) = L_TRY;
+    SET_LAYER_LOOP_TRY(0,P.y,loop);
     LAYER_TRY(0,P.y) |= direction;
-    LAYER_LOOP(0,P.y) = loop;
 }
 
 static void try_down(struct ulong_size P, const loop_type loop,
@@ -237,13 +253,12 @@ static void try_down(struct ulong_size P, const loop_type loop,
     unsigned long i = P.x;
     i++;
     while (i < height) {
-        if (blocked(LAYER(i,P.y)))
+        if (blocked(i,P.y))
             return;
-        if (!available(LAYER(i,P.y),loop))
+        if (!available(i,P.y,loop))
             return;
-        LAYER_STATUS(i,P.y) = L_TRY;
+        SET_LAYER_LOOP_TRY(i,P.y,loop);
         LAYER_TRY(i,P.y) |= direction;
-        LAYER_LOOP(i,P.y) = loop;
         i++;
     }
 }
@@ -258,9 +273,9 @@ static int mark_left(struct ulong_size P, loop_type loop, struct ulong_size *nex
         return L_INVALID;
     j--;
     while (j) {
-        if (LAYER_STATUS(P.x,j) == L_IO)
+        if (GET_LAYER_STATUS(P.x,j) == L_IO)
             return L_IO;
-        if (LAYER_LOOP(P.x,j) < loop) {
+        if (GET_LAYER_LOOP(P.x,j) < loop) {
             next->x = P.x;
             next->y = j;
             return L_TRY;
@@ -269,9 +284,9 @@ static int mark_left(struct ulong_size P, loop_type loop, struct ulong_size *nex
         j--;
     }
     //check first column
-    if (LAYER_STATUS(P.x,0) == L_IO)
+    if (GET_LAYER_STATUS(P.x,0) == L_IO)
         return L_IO;
-    if (LAYER_LOOP(P.x,0) < loop) {
+    if (GET_LAYER_LOOP(P.x,0) < loop) {
         next->x = P.x;
         next->y = 0;
         return L_TRY;
@@ -285,9 +300,9 @@ static int mark_right(struct ulong_size P, loop_type loop,
     unsigned long j = P.y;
     j++;
     while (j < width) {
-        if (LAYER_STATUS(P.x,j) == L_IO)
+        if (GET_LAYER_STATUS(P.x,j) == L_IO)
             return L_IO;
-        if (LAYER_LOOP(P.x,j) < loop) {
+        if (GET_LAYER_LOOP(P.x,j) < loop) {
             next->x = P.x;
             next->y = j;
             return L_TRY;
@@ -304,9 +319,9 @@ static int mark_up(struct ulong_size P, loop_type loop, struct ulong_size *next)
         return L_INVALID;
     i--;
     while (i) {
-        if (LAYER_STATUS(i,P.y) == L_IO)
+        if (GET_LAYER_STATUS(i,P.y) == L_IO)
             return L_IO;
-        if (LAYER_LOOP(i,P.y) < loop) {
+        if (GET_LAYER_LOOP(i,P.y) < loop) {
             next->x = i;
             next->y = P.y;
             return L_TRY;
@@ -315,9 +330,9 @@ static int mark_up(struct ulong_size P, loop_type loop, struct ulong_size *next)
         i--;
     }
     //check first row
-    if (LAYER_STATUS(0,P.y) == L_IO)
+    if (GET_LAYER_STATUS(0,P.y) == L_IO)
         return L_IO;
-    if (LAYER_LOOP(0,P.y) < loop) {
+    if (GET_LAYER_LOOP(0,P.y) < loop) {
         next->x = 0;
         next->y = P.y;
         return L_TRY;
@@ -330,9 +345,9 @@ static int mark_down(struct ulong_size P, loop_type loop, struct ulong_size *nex
     unsigned long i = P.x;
     i++;
     while (i < height) {
-        if (LAYER_STATUS(i,P.y) == L_IO)
+        if (GET_LAYER_STATUS(i,P.y) == L_IO)
             return L_IO;
-        if (LAYER_LOOP(i,P.y) < loop) {
+        if (GET_LAYER_LOOP(i,P.y) < loop) {
             next->x = i;
             next->y = P.y;
             return L_TRY;
@@ -356,9 +371,9 @@ static void mark_path(const struct ulong_size P, const loop_type loop,
 #define MARK_PATH_FAILURE_CODE                                          \
     do {                                                                \
         fprintf(stderr,"\n____status=0x%02x\ttry=0x%02x\tloop=%d\n",    \
-                LAYER_STATUS(P.x,P.y),                                  \
+                GET_LAYER_STATUS(P.x,P.y),                              \
                 LAYER_TRY(P.x,P.y),                                     \
-                LAYER_LOOP(P.x,P.y));                                   \
+                GET_LAYER_LOOP(P.x,P.y));                               \
         assert(0 && "mark_path() unknown intersection!");               \
         exit(EXIT_FAILURE);                                             \
     } while (0);
@@ -369,7 +384,7 @@ static void mark_path(const struct ulong_size P, const loop_type loop,
 
     const unsigned char s = LAYER_TRY(P.x,P.y);
 
-    if (LAYER_STATUS(P.x,P.y) == L_IO)
+    if (GET_LAYER_STATUS(P.x,P.y) == L_IO)
         return;
 
     //from source
@@ -555,7 +570,9 @@ static inline unsigned char get_connection(const layer_element el) {
 
     if (s == (T_TRY_WIRE_UP | S_TRY_WIRE_DOWN))       return L_WIRE;
 
-    return el.status;
+    if (el.loop_status & L_TRY)
+        return L_TRY;
+    return el.loop_status;
 }
 
 static int has_intersection(const loop_type loop,
@@ -571,9 +588,9 @@ static int has_intersection(const loop_type loop,
 
     for (i=uprow; i<downrow; ++i) {
         for (j=leftcol; j<rightcol; ++j) {
-            if (LAYER_STATUS(i,j) != L_TRY)
+            if (GET_LAYER_STATUS(i,j) != L_TRY)
                 continue;
-            if (LAYER_LOOP(i,j) != loop)
+            if (GET_LAYER_LOOP(i,j) != loop)
                 continue;
             const unsigned char status = get_connection(LAYER(i,j));
             if (status == L_WIRE || status == L_VIA) {
@@ -587,9 +604,9 @@ static int has_intersection(const loop_type loop,
 
     for (i=0; i<height; ++i) {
         for (j=0; j<width; ++j) {
-            if (LAYER_STATUS(i,j) != L_TRY)
+            if (GET_LAYER_STATUS(i,j) != L_TRY)
                 continue;
-            if (LAYER_LOOP(i,j) != loop)
+            if (GET_LAYER_LOOP(i,j) != loop)
                 continue;
             const unsigned char status = get_connection(LAYER(i,j));
             if (status == L_WIRE || status == L_VIA) {
@@ -607,7 +624,6 @@ static inline void clear_layer_element(const unsigned long x,
                                        const unsigned long y) {
     LAYER_STATUS(x,y) = L_EMPTY;
     LAYER_TRY(x,y) = TRY_EMPTY;
-    LAYER_LOOP(x,y) = 0;
 }
 
 static void clean_layer() {
@@ -615,7 +631,7 @@ static void clean_layer() {
     unsigned long j;
     for (i=0; i<height; ++i)
         for (j=0; j<width; ++j)
-            if (LAYER_STATUS(i,j) == L_TRY)
+            if (GET_LAYER_STATUS(i,j) == L_TRY)
                 clear_layer_element(i,j);
 }
 
@@ -624,7 +640,7 @@ static void reset_layer() {
     unsigned long j;
     for (i=0; i<height; ++i)
         for (j=0; j<width; ++j)
-            if (LAYER_STATUS(i,j) != L_IO)
+            if (GET_LAYER_STATUS(i,j) != L_IO)
                 clear_layer_element(i,j);
 }
 
@@ -664,9 +680,9 @@ static void expand( struct ulong_size P, const loop_type loop) {
     }
     else {
         fprintf(stderr,"\n____status=%d\ttry=%d\tloop=%d\n",
-                LAYER_STATUS(P.x,P.y),
+                GET_LAYER_STATUS(P.x,P.y),
                 LAYER_TRY(P.x,P.y),
-                LAYER_LOOP(P.x,P.y));
+                GET_LAYER_LOOP(P.x,P.y));
         assert(0);
         exit(EXIT_FAILURE);
     }
@@ -679,7 +695,7 @@ static int try_again(const loop_type loop) {
     unsigned long j;
     for (i=0; i<height; ++i) {
         for (j=0; j<width; ++j) {
-            if (LAYER_STATUS(i,j) == L_TRY && LAYER_LOOP(i,j) == loop-1) {
+            if (GET_LAYER_STATUS(i,j) == L_TRY && GET_LAYER_LOOP(i,j) == loop-1) {
                 struct ulong_size P = { .x = i, .y = j };
                 expand(P,loop);
             }
@@ -689,7 +705,7 @@ static int try_again(const loop_type loop) {
     unsigned long empty = 0;
     for (i=0; i<height; ++i)
         for (j=0; j<width; ++j)
-            if (LAYER_STATUS(i,j) == L_EMPTY)
+            if (GET_LAYER_STATUS(i,j) == L_EMPTY)
                 empty++;
     return empty == 0;
 #else
@@ -726,8 +742,8 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
 
     assure_io(S,T);
 
-    //LAYER(S.x,S.y).status = L_START;
-    //LAYER(T.x,T.y).status = L_TERM;
+    //LAYER(S.x,S.y).loop_status = L_START;
+    //LAYER(T.x,T.y).loop_status = L_TERM;
 
     if (print_status >= 2) {
         printf("net     %4lu ",net);
@@ -762,8 +778,8 @@ static inline layer_element *create_layer(struct analysis_info *soc) {
     for (i=0; i<height; ++i) {
         for (j=0; j<width; ++j) {
             unsigned long idx = i*soc->grid_width + j;
-            if (LAYER_STATUS(i,j) == L_IO)
-                new_layer[idx].status = L_IO;
+            if (GET_LAYER_STATUS(i,j) == L_IO)
+                new_layer[idx].loop_status = L_IO;
         }
     }
 
