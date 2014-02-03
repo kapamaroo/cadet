@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
 
     //print_grid(soc.grid,soc.grid_width,soc.grid_height);
 
-#if 0
+#if 1
     unsigned long i;
     for (i=0; i<soc.layer_num; ++i) {
         printf("LAYER %lu\n",i);
@@ -39,11 +39,11 @@ int main(int argc, char *argv[]) {
 #endif
 
     if (failed)
-        printf("%lu netlists failed to route in %lu wire layers\n",
-               failed,soc.layer_num);
+        fprintf(stderr,"%lu netlists failed to route in %lu wire layers\n",
+                failed,soc.layer_num);
     else
-        printf("all netlists succesfully routed in %lu wire layers\n",
-               soc.layer_num);
+        fprintf(stderr,"all netlists succesfully routed in %lu wire layers\n",
+                soc.layer_num);
 
     clear(&soc);
     return 0;

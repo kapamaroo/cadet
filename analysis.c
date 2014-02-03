@@ -183,6 +183,9 @@ void put_placement(struct placement_info *p, const double wire_size,
         p->input_slots[input_slot].usize.x = i;
         p->input_slots[input_slot].usize.y = j;
 
+        assert(i < soc->grid_height);
+        assert(j < soc->grid_width);
+
         soc->layer[0][i*soc->grid_width + j].status = L_IO;
     }
 
@@ -191,6 +194,10 @@ void put_placement(struct placement_info *p, const double wire_size,
 
     p->output_slot.usize.x = i;
     p->output_slot.usize.y = j;
+
+    assert(i < soc->grid_height);
+    assert(j < soc->grid_width);
+
     soc->layer[0][i*soc->grid_width + j].status = L_IO;
 }
 
@@ -212,6 +219,15 @@ void put_chip_io(struct placement_info *io, const double wire_size,
     if (y == soc->grid_width)
         y--;
 
+    if (x >= soc->grid_height) {
+        fprintf(stderr,"x:(%g) : %lu >= %lu\n",io->dim.fsize.x,x,soc->grid_height);
+        assert(0);
+    }
+    if (y >= soc->grid_width) {
+        fprintf(stderr,"y:(%g) : %lu >= %lu\n",io->dim.fsize.y,y,soc->grid_width);
+        assert(0);
+    }
+
     io->output_slot.usize.x = x;
     io->output_slot.usize.y = y;
 
@@ -223,11 +239,12 @@ static void create_grid_and_layers(struct analysis_info *soc) {
 
     soc->chip.dim.usize.x = floor(soc->chip.dim.fsize.x / wire_size);
     soc->chip.dim.usize.y = floor(soc->chip.dim.fsize.y / wire_size);
-    double cell_grid_x = soc->chip.dim.usize.x;
-    double cell_grid_y = soc->chip.dim.usize.y;
 
-    soc->grid_width = cell_grid_x;
-    soc->grid_height = cell_grid_y;
+    //chip height is the number of rows
+    //chip width is the number of columns
+
+    soc->grid_width = soc->chip.dim.usize.y;
+    soc->grid_height = soc->chip.dim.usize.x;
 
     soc->grid = (grid_element *)_calloc(soc->grid_width * soc->grid_height,
                                         sizeof(grid_element));

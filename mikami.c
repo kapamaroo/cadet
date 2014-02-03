@@ -1,6 +1,23 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include "analysis.h"
 #include "toolbox.h"
+
+#ifdef MIN
+#undef MIN
+#endif
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+
+#ifdef MAX
+#undef MAX
+#endif
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
+
+#define MIN3(a,b,c) (MIN(MIN(a,b),c))
+#define MAX3(a,b,c) (MAX(MAX(a,b),c))
+
+#define MIN4(a,b,c,d) (MIN(MIN(a,b),MIN(c,d)))
+#define MAX4(a,b,c,d) (MAX(MAX(a,b),MAX(c,d)))
 
 static layer_element *layer = NULL;
 static unsigned long width = 0;
@@ -52,10 +69,11 @@ unsigned long route_mikami(struct analysis_info *soc) {
             break;
         //set global variable
         layer = create_layer(soc);
-        if (!layer)
-            return failed_nets;
+        if (!layer) {
+            break;
+        }
     }
-    return 0;
+    return failed_nets;
 }
 
 static unsigned long mikami_one_layer(struct analysis_info *soc) {
@@ -67,21 +85,20 @@ static unsigned long mikami_one_layer(struct analysis_info *soc) {
     for (i=0; i<soc->netlist.next; ++i) {
         struct net_info *netlist = (struct net_info *)(soc->netlist.data) + i;
         for (j=0; j<netlist->num_drain; ++j,++net) {
-            if (netlist->successfully_routed[j])
+            if (netlist->successfully_routed[j]) {
+                //fprintf(stderr,"   skip %4lu (routed in layer %d)\n", net,netlist->successfully_routed[j]);
                 continue;
-#if 0
-            //printf("__________    routing net %4lu ...\n",net);
-            failed++;
-#else
-            unsigned long next_input = netlist->drain[j]->next_free_input_slot++;
+            }
+            unsigned long next_input = netlist->drain[j]->next_free_input_slot;
             struct ulong_size S = netlist->source->output_slot.usize;
             struct ulong_size T = netlist->drain[j]->input_slots[next_input].usize;
             int error = mikami(S,T,max_loop,net);
             if (error)
                 failed++;
-            else
-                netlist->successfully_routed[j] = 1;
-#endif
+            else {
+                netlist->drain[j]->next_free_input_slot++;
+                netlist->successfully_routed[j] = soc->layer_num;
+            }
         }
     }
     return failed;
@@ -278,116 +295,189 @@ static int mark_down(struct ulong_size P, unsigned char loop, struct ulong_size 
     return L_INVALID;
 }
 
-static void mark_path(const struct ulong_size p, const unsigned char loop) {
-#define RECURSION_MARK_PATH(dir1,dir2)          \
-    {                                           \
-        struct ulong_size a;                    \
-        if (mark_ ## dir1 (p,loop,&a) == L_TRY) \
-            mark_path(a,loop-1);                \
-        if (mark_ ## dir2 (p,loop,&a) == L_TRY) \
-            mark_path(a,loop-1);                \
-    }
+static void mark_path(const struct ulong_size P, const unsigned char loop,
+                      const struct ulong_size S, const struct ulong_size T) {
+
+#define RECURSION_MARK_PATH(direction)                  \
+    do {                                                \
+        struct ulong_size a;                            \
+        if (mark_ ## direction (P,loop,&a) == L_TRY)    \
+            mark_path(a,loop-1,S,T);                    \
+    } while (0);
+
+#define MARK_PATH_FAILURE_CODE                                          \
+    do {                                                                \
+        printf("\n____status=0x%02x\ttry=0x%02x\tloop=%d\n",            \
+               LAYER_STATUS(P.x,P.y),                                   \
+               LAYER_TRY(P.x,P.y),                                      \
+               LAYER_LOOP(P.x,P.y));                                    \
+        assert(0 && "mark_path() unknown intersection!");               \
+    } while (0);
 
     //mark the opposite directions
 
     assert(loop > 0);
 
-    const unsigned char s = LAYER_TRY(p.x,p.y);
+    const unsigned char s = LAYER_TRY(P.x,P.y);
 
-    if (LAYER_STATUS(p.x,p.y) == L_IO)
+    if (LAYER_STATUS(P.x,P.y) == L_IO)
         return;
 
     //from source
     if (s == (S_TRY_WIRE_LEFT | T_TRY_WIRE_RIGHT)) {
-        LAYER_STATUS(p.x,p.y) = L_WIRE;
-        RECURSION_MARK_PATH(right,left);
+        LAYER_STATUS(P.x,P.y) = L_WIRE;
+        RECURSION_MARK_PATH(right);
+        RECURSION_MARK_PATH(left);
     }
     else if (s == (S_TRY_WIRE_LEFT | T_TRY_WIRE_UP)) {
-        LAYER_STATUS(p.x,p.y) = L_VIA;
-        RECURSION_MARK_PATH(right,down);
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        RECURSION_MARK_PATH(right);
+        RECURSION_MARK_PATH(down);
     }
     else if (s == (S_TRY_WIRE_LEFT | T_TRY_WIRE_DOWN)) {
-        LAYER_STATUS(p.x,p.y) = L_VIA;
-        RECURSION_MARK_PATH(right,up);
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        RECURSION_MARK_PATH(right);
+        RECURSION_MARK_PATH(up);
     }
     else if (s == (S_TRY_WIRE_RIGHT | T_TRY_WIRE_UP)) {
-        LAYER_STATUS(p.x,p.y) = L_VIA;
-        RECURSION_MARK_PATH(left,down);
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        RECURSION_MARK_PATH(left);
+        RECURSION_MARK_PATH(down);
     }
     else if (s == (S_TRY_WIRE_RIGHT | T_TRY_WIRE_DOWN)) {
-        LAYER_STATUS(p.x,p.y) = L_VIA;
-        RECURSION_MARK_PATH(left,up);
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        RECURSION_MARK_PATH(left);
+        RECURSION_MARK_PATH(up);
     }
     else if (s == (S_TRY_WIRE_UP | T_TRY_WIRE_DOWN)) {
-        LAYER_STATUS(p.x,p.y) = L_WIRE;
-        RECURSION_MARK_PATH(down,up);
+        LAYER_STATUS(P.x,P.y) = L_WIRE;
+        RECURSION_MARK_PATH(down);
+        RECURSION_MARK_PATH(up);
     }
 
     //from term
     else if (s == (T_TRY_WIRE_LEFT | S_TRY_WIRE_RIGHT)) {
-        LAYER_STATUS(p.x,p.y) = L_WIRE;
-        RECURSION_MARK_PATH(right,left);
+        LAYER_STATUS(P.x,P.y) = L_WIRE;
+        RECURSION_MARK_PATH(right);
+        RECURSION_MARK_PATH(left);
     }
     else if (s == (T_TRY_WIRE_LEFT | S_TRY_WIRE_UP)) {
-        LAYER_STATUS(p.x,p.y) = L_VIA;
-        RECURSION_MARK_PATH(right,down);
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        RECURSION_MARK_PATH(right);
+        RECURSION_MARK_PATH(down);
     }
     else if (s == (T_TRY_WIRE_LEFT | S_TRY_WIRE_DOWN)) {
-        LAYER_STATUS(p.x,p.y) = L_VIA;
-        RECURSION_MARK_PATH(right,up);
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        RECURSION_MARK_PATH(right);
+        RECURSION_MARK_PATH(up);
     }
     else if (s == (T_TRY_WIRE_RIGHT | S_TRY_WIRE_UP)) {
-        LAYER_STATUS(p.x,p.y) = L_VIA;
-        RECURSION_MARK_PATH(left,down);
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        RECURSION_MARK_PATH(left);
+        RECURSION_MARK_PATH(down);
     }
     else if (s == (T_TRY_WIRE_RIGHT | S_TRY_WIRE_DOWN)) {
-        LAYER_STATUS(p.x,p.y) = L_VIA;
-        RECURSION_MARK_PATH(left,up);
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        RECURSION_MARK_PATH(left);
+        RECURSION_MARK_PATH(up);
     }
     else if (s == (T_TRY_WIRE_UP | S_TRY_WIRE_DOWN)) {
-        LAYER_STATUS(p.x,p.y) = L_WIRE;
-        RECURSION_MARK_PATH(down,up);
+        LAYER_STATUS(P.x,P.y) = L_WIRE;
+        RECURSION_MARK_PATH(down);
+        RECURSION_MARK_PATH(up);
     }
-    else {
-        struct ulong_size a;
-        switch (LAYER_TRY(p.x,p.y)) {
-            //from source
-        case S_TRY_WIRE_LEFT:
-        case T_TRY_WIRE_LEFT:
-            LAYER_STATUS(p.x,p.y) = L_VIA;
-            if (mark_right(p,loop,&a) == L_TRY)
-                mark_path(a,loop-1);
-            break;
-        case S_TRY_WIRE_RIGHT:
-        case T_TRY_WIRE_RIGHT:
-            LAYER_STATUS(p.x,p.y) = L_VIA;
-            if (mark_left(p,loop,&a) == L_TRY)
-                mark_path(a,loop-1);
-            break;
-        case S_TRY_WIRE_UP:
-        case T_TRY_WIRE_UP:
-            LAYER_STATUS(p.x,p.y) = L_VIA;
-            if (mark_down(p,loop,&a) == L_TRY)
-                mark_path(a,loop-1);
-            break;
-        case S_TRY_WIRE_DOWN:
-        case T_TRY_WIRE_DOWN:
-            LAYER_STATUS(p.x,p.y) = L_VIA;
-            if (mark_up(p,loop,&a) == L_TRY)
-                mark_path(a,loop-1);
-            break;
-        default:
-#if 1
-            printf("\n_____________________status=0x%02x\ttry=0x%02x\tloop=%d\n",
-                   LAYER_STATUS(p.x,p.y),
-                   LAYER_TRY(p.x,p.y),
-                   LAYER_LOOP(p.x,p.y));
-            assert(0 && "mark_path() has been called without intersection!");
-#endif
+
+    //mid-points with one possible direction
+    else if (s == S_TRY_WIRE_LEFT || s == T_TRY_WIRE_LEFT) {
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        RECURSION_MARK_PATH(right);
+    }
+    else if (s == S_TRY_WIRE_RIGHT || s == T_TRY_WIRE_RIGHT) {
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        RECURSION_MARK_PATH(left);
+    }
+    else if (s == S_TRY_WIRE_UP || s == T_TRY_WIRE_UP) {
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        RECURSION_MARK_PATH(down);
+    }
+    else if (s == S_TRY_WIRE_DOWN || s == T_TRY_WIRE_DOWN) {
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        RECURSION_MARK_PATH(up);
+    }
+
+    //mid-points with multiple directions
+    else if (s & S_TRY_ANY) {
+        unsigned long invalid = MAX(width,height);
+        unsigned long l = (P.x <= S.x) ? P.x - S.x : invalid;
+        unsigned long r = (P.x >  S.x) ? S.x - P.x : invalid;
+        unsigned long u = (P.y <= S.y) ? S.y - P.y : invalid;
+        unsigned long d = (P.y >  S.y) ? P.y - S.y : invalid;
+
+        if (!(LAYER_TRY(P.x,P.y) & S_TRY_WIRE_LEFT))
+            l = invalid;
+        if (!(LAYER_TRY(P.x,P.y) & S_TRY_WIRE_RIGHT))
+            r = invalid;
+        if (!(LAYER_TRY(P.x,P.y) & S_TRY_WIRE_UP))
+            u = invalid;
+        if (!(LAYER_TRY(P.x,P.y) & S_TRY_WIRE_DOWN))
+            d = invalid;
+
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        if (MIN4(l,r,u,d) == l) {
+            RECURSION_MARK_PATH(right);
         }
+        else if (MIN3(r,u,d) == r) {
+            RECURSION_MARK_PATH(left);
+        }
+        else if (MIN(u,d) == u) {
+            RECURSION_MARK_PATH(down);
+        }
+        else if (d != invalid) {
+            RECURSION_MARK_PATH(up);
+        }
+        else
+            MARK_PATH_FAILURE_CODE;
+    }
+    else if (s & T_TRY_ANY) {
+        unsigned long invalid = MAX(width,height);
+        unsigned long l = (P.x <= T.x) ? P.x - T.x : width;
+        unsigned long r = (P.x >  T.x) ? T.x - P.x : width;
+        unsigned long u = (P.y <= T.y) ? T.y - P.y : height;
+        unsigned long d = (P.y >  T.y) ? P.y - T.y : height;
+
+        if (!(LAYER_TRY(P.x,P.y) & T_TRY_WIRE_LEFT))
+            l = invalid;
+        if (!(LAYER_TRY(P.x,P.y) & T_TRY_WIRE_RIGHT))
+            r = invalid;
+        if (!(LAYER_TRY(P.x,P.y) & T_TRY_WIRE_UP))
+            u = invalid;
+        if (!(LAYER_TRY(P.x,P.y) & T_TRY_WIRE_DOWN))
+            d = invalid;
+
+        LAYER_STATUS(P.x,P.y) = L_VIA;
+        if (MIN4(l,r,u,d) == l) {
+            RECURSION_MARK_PATH(right);
+        }
+        else if (MIN3(r,u,d) == r) {
+            RECURSION_MARK_PATH(left);
+        }
+        else if (MIN(u,d) == u) {
+            RECURSION_MARK_PATH(down);
+        }
+        else if (d != invalid) {
+            RECURSION_MARK_PATH(up);
+        }
+        else
+            MARK_PATH_FAILURE_CODE;
+    }
+
+    //unknown case
+    else {
+        MARK_PATH_FAILURE_CODE;
     }
 
 #undef RECURSION_MARK_PATH
+#undef MARK_PATH_FAILURE_CODE
 }
 
 static inline unsigned char get_connection(const layer_element el) {
@@ -419,9 +509,33 @@ static inline unsigned char get_connection(const layer_element el) {
     return el.status;
 }
 
-static int has_intersection(const unsigned char loop) {
+static int has_intersection(const unsigned char loop,
+                            const struct ulong_size S, const struct ulong_size T) {
     unsigned long i;
     unsigned long j;
+
+    //search first inside the rectangle
+    unsigned long uprow = MIN(S.x,T.x);
+    unsigned long downrow = MAX(S.x,T.x);
+    unsigned long leftcol = MIN(S.y,T.y);
+    unsigned long rightcol = MAX(S.y,T.y);
+
+    for (i=uprow; i<downrow; ++i) {
+        for (j=leftcol; j<rightcol; ++j) {
+            if (LAYER_STATUS(i,j) != L_TRY)
+                continue;
+            if (LAYER_LOOP(i,j) != loop)
+                continue;
+            const unsigned char status = get_connection(LAYER(i,j));
+            if (status == L_WIRE || status == L_VIA) {
+                //found intersection
+                struct ulong_size p = { .x = i, .y = j };
+                mark_path(p,loop,S,T);
+                return 2;
+            }
+        }
+    }
+
     for (i=0; i<height; ++i) {
         for (j=0; j<width; ++j) {
             if (LAYER_STATUS(i,j) != L_TRY)
@@ -432,7 +546,7 @@ static int has_intersection(const unsigned char loop) {
             if (status == L_WIRE || status == L_VIA) {
                 //found intersection
                 struct ulong_size p = { .x = i, .y = j };
-                mark_path(p,loop);
+                mark_path(p,loop,S,T);
                 return 1;
             }
         }
@@ -534,13 +648,13 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
     expand_source(S,loop);
     expand_term(T,loop);
 
-    int path_found = has_intersection(loop);
+    int path_found = has_intersection(loop,S,T);
     int full = 0;
     while (!path_found && !full) {
         if (loop == max_loop)  break;
         loop++;
         full = try_again(loop);
-        path_found = has_intersection(loop);
+        path_found = has_intersection(loop,S,T);
     }
     clean_layer();
 
@@ -549,15 +663,18 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
     //LAYER(S.x,S.y).status = L_START;
     //LAYER(T.x,T.y).status = L_TERM;
 
-    fprintf(stderr,"netlist %4lu ",net);
-    //success
-    if (path_found)
+#if 0
+    fprintf(stderr,"net     %4lu ",net);
+    if (path_found == 1)
         //if (loop != 1)
         fprintf(stderr,"routed: loop %4d\n",loop);
+    else if (path_found == 2)
+        fprintf(stderr,"routed: loop %4d (fast path)\n",loop);
     else if (loop == max_loop)
         fprintf(stderr,"failed: max loop limit (%d) reached\n",max_loop);
     else if (full)
         fprintf(stderr,"failed: layer is full (loop=%d)\n",loop);
+#endif
     return path_found ? 0 : 1;
 }
 
