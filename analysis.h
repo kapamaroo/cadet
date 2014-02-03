@@ -45,11 +45,16 @@
 #define S_TRY_HORIZONTAL (S_TRY_WIRE_LEFT | S_TRY_WIRE_RIGHT)
 #define S_TRY_VERTICAL   (S_TRY_WIRE_UP | S_TRY_WIRE_DOWN)
 
+#define MAX_LOOP 65535
+typedef unsigned short loop_type;
+
 struct _layer_element_ {
     unsigned char status;  //uses the lower 4 bits only
     unsigned char try;     //[  hi 4 bits for term  |  low 4 bits for source  ]
-    unsigned char loop;    //starts from 1, only for L_TRY_* and intersections
+    loop_type loop;        //starts from 1, only for L_TRY_* and intersections
+#if 0
     unsigned char _pad_;   //keep valgrind happy
+#endif
 };
 
 typedef unsigned char grid_element;
@@ -74,6 +79,8 @@ struct analysis_info {
 
     layer_element *layer[MAX_LAYERS];
     unsigned long layer_num;
+
+    loop_type max_loop;
 };
 
 void analyse(struct analysis_info *soc, const double wire_size);

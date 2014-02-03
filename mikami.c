@@ -32,8 +32,9 @@ static unsigned long height = 0;
 #define LAYER_LOOP(x,y)   (LAYER(x,y).loop)
 
 static int mikami(const struct ulong_size S, const struct ulong_size T,
-                  const unsigned char max_loop, const unsigned long net);
-static unsigned long mikami_one_layer(struct analysis_info *soc);
+                  const loop_type max_loop, const unsigned long net);
+static unsigned long mikami_one_layer(struct analysis_info *soc,
+                                      const loop_type max_loop);
 static layer_element *create_layer(struct analysis_info *soc);
 
 static void assure_io(const struct ulong_size S, const struct ulong_size T) {
@@ -64,10 +65,16 @@ unsigned long route_mikami(struct analysis_info *soc) {
     width = soc->grid_width;
     height = soc->grid_height;
 
+    const loop_type max_loop = soc->max_loop;
+
     unsigned long failed_nets = 0;
+    unsigned long prev_failed_nets = 0;
     while (1) {
-        failed_nets = mikami_one_layer(soc);
+        prev_failed_nets = failed_nets;
+        failed_nets = mikami_one_layer(soc,max_loop);
         if (!failed_nets)
+            break;
+        else if (prev_failed_nets == failed_nets)
             break;
         //set global variable
         layer = create_layer(soc);
@@ -78,12 +85,12 @@ unsigned long route_mikami(struct analysis_info *soc) {
     return failed_nets;
 }
 
-static unsigned long mikami_one_layer(struct analysis_info *soc) {
+static unsigned long mikami_one_layer(struct analysis_info *soc,
+                                      const loop_type max_loop) {
     unsigned long i;
     unsigned long j;
     unsigned long net = 0;
     unsigned long failed = 0;
-    unsigned char max_loop = 254;
     for (i=0; i<soc->netlist.next; ++i) {
         struct net_info *netlist = (struct net_info *)(soc->netlist.data) + i;
         for (j=0; j<netlist->num_drain; ++j,++net) {
@@ -115,13 +122,13 @@ static inline int blocked(const layer_element el) {
     return 0;
 }
 
-static inline int available(const layer_element el, const unsigned char loop) {
+static inline int available(const layer_element el, const loop_type loop) {
     if (el.status == L_EMPTY || (el.status == L_TRY && el.loop == loop))
         return 1;
     return 0;
 }
 
-static void try_left(struct ulong_size P, const unsigned char loop,
+static void try_left(struct ulong_size P, const loop_type loop,
                      const unsigned char direction) {
     unsigned long j = P.y;
     if (j == 0)
@@ -147,7 +154,7 @@ static void try_left(struct ulong_size P, const unsigned char loop,
     LAYER_LOOP(P.x,0) = loop;
 }
 
-static void try_right(struct ulong_size P, const unsigned char loop,
+static void try_right(struct ulong_size P, const loop_type loop,
                       const unsigned char direction) {
     unsigned long j = P.y;
     j++;
@@ -163,7 +170,7 @@ static void try_right(struct ulong_size P, const unsigned char loop,
     }
 }
 
-static void try_up(struct ulong_size P, const unsigned char loop,
+static void try_up(struct ulong_size P, const loop_type loop,
                    const unsigned char direction) {
     unsigned long i = P.x;
     if (i == 0)
@@ -189,7 +196,7 @@ static void try_up(struct ulong_size P, const unsigned char loop,
     LAYER_LOOP(0,P.y) = loop;
 }
 
-static void try_down(struct ulong_size P, const unsigned char loop,
+static void try_down(struct ulong_size P, const loop_type loop,
                      const unsigned char direction) {
     unsigned long i = P.x;
     i++;
@@ -209,7 +216,7 @@ static void try_down(struct ulong_size P, const unsigned char loop,
 //  return L_TRY and sets *next point to mark_path()
 /////////////////////////////////////////////////////////////
 
-static int mark_left(struct ulong_size P, unsigned char loop, struct ulong_size *next) {
+static int mark_left(struct ulong_size P, loop_type loop, struct ulong_size *next) {
     unsigned long j = P.y;
     if (j == 0)
         return L_INVALID;
@@ -237,7 +244,8 @@ static int mark_left(struct ulong_size P, unsigned char loop, struct ulong_size 
     return L_INVALID;
 }
 
-static int mark_right(struct ulong_size P, unsigned char loop, struct ulong_size *next) {
+static int mark_right(struct ulong_size P, loop_type loop,
+                      struct ulong_size *next) {
     unsigned long j = P.y;
     j++;
     while (j < width) {
@@ -254,7 +262,7 @@ static int mark_right(struct ulong_size P, unsigned char loop, struct ulong_size
     return L_INVALID;
 }
 
-static int mark_up(struct ulong_size P, unsigned char loop, struct ulong_size *next) {
+static int mark_up(struct ulong_size P, loop_type loop, struct ulong_size *next) {
     unsigned long i = P.x;
     if (i == 0)
         return L_INVALID;
@@ -282,7 +290,7 @@ static int mark_up(struct ulong_size P, unsigned char loop, struct ulong_size *n
     return L_INVALID;
 }
 
-static int mark_down(struct ulong_size P, unsigned char loop, struct ulong_size *next) {
+static int mark_down(struct ulong_size P, loop_type loop, struct ulong_size *next) {
     unsigned long i = P.x;
     i++;
     while (i < height) {
@@ -299,7 +307,7 @@ static int mark_down(struct ulong_size P, unsigned char loop, struct ulong_size 
     return L_INVALID;
 }
 
-static void mark_path(const struct ulong_size P, const unsigned char loop,
+static void mark_path(const struct ulong_size P, const loop_type loop,
                       const struct ulong_size S, const struct ulong_size T) {
 
 #define RECURSION_MARK_PATH(direction)                  \
@@ -513,7 +521,7 @@ static inline unsigned char get_connection(const layer_element el) {
     return el.status;
 }
 
-static int has_intersection(const unsigned char loop,
+static int has_intersection(const loop_type loop,
                             const struct ulong_size S, const struct ulong_size T) {
     unsigned long i;
     unsigned long j;
@@ -574,21 +582,30 @@ static void clean_layer() {
                 clear_layer_element(i,j);
 }
 
-static void expand_source(const struct ulong_size S, const unsigned char loop) {
+static void reset_layer() {
+    unsigned long i;
+    unsigned long j;
+    for (i=0; i<height; ++i)
+        for (j=0; j<width; ++j)
+            if (LAYER_STATUS(i,j) != L_IO)
+                clear_layer_element(i,j);
+}
+
+static void expand_source(const struct ulong_size S, const loop_type loop) {
     try_up   (S,loop,S_TRY_WIRE_UP);
     try_down (S,loop,S_TRY_WIRE_DOWN);
     try_left (S,loop,S_TRY_WIRE_LEFT);
     try_right(S,loop,S_TRY_WIRE_RIGHT);
 }
 
-static void expand_term(const struct ulong_size T, const unsigned char loop) {
+static void expand_term(const struct ulong_size T, const loop_type loop) {
     try_up   (T,loop,T_TRY_WIRE_UP);
     try_down (T,loop,T_TRY_WIRE_DOWN);
     try_left (T,loop,T_TRY_WIRE_LEFT);
     try_right(T,loop,T_TRY_WIRE_RIGHT);
 }
 
-static void expand( struct ulong_size P, const unsigned char loop) {
+static void expand( struct ulong_size P, const loop_type loop) {
     //from source
     if (LAYER_TRY(P.x,P.y) & S_TRY_HORIZONTAL) {
         try_up  (P,loop,S_TRY_WIRE_UP);
@@ -617,27 +634,29 @@ static void expand( struct ulong_size P, const unsigned char loop) {
     }
 }
 
-static int try_again(const unsigned char loop) {
+static int try_again(const loop_type loop) {
     assert(loop > 1);
 
     unsigned long i;
     unsigned long j;
-    unsigned long empty = 0;
     for (i=0; i<height; ++i) {
         for (j=0; j<width; ++j) {
-            if (LAYER_STATUS(i,j) == L_EMPTY)
-                empty++;
             if (LAYER_STATUS(i,j) == L_TRY && LAYER_LOOP(i,j) == loop-1) {
                 struct ulong_size P = { .x = i, .y = j };
                 expand(P,loop);
             }
         }
     }
+    unsigned long empty = 0;
+    for (i=0; i<height; ++i)
+        for (j=0; j<width; ++j)
+            if (LAYER_STATUS(i,j) == L_EMPTY)
+                empty++;
     return empty == 0;
 }
 
 static int mikami(const struct ulong_size S, const struct ulong_size T,
-                  const unsigned char max_loop, const unsigned long net) {
+                  const loop_type max_loop, const unsigned long net) {
     //return 0 on success
 
     if (!max_loop) {
@@ -648,7 +667,7 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
 
     assure_io(S,T);
 
-    unsigned char loop = 1;
+    loop_type loop = 1;
 
     expand_source(S,loop);
     expand_term(T,loop);
@@ -685,6 +704,12 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
 
 static layer_element *create_layer(struct analysis_info *soc) {
     assert(soc);
+
+#if 1
+    reset_layer();
+    soc->layer_num++;
+    return layer;
+#endif
 
     if (soc->layer_num == MAX_LAYERS) {
         printf("Cannot create more layers (MAX_LAYERS = %d)\n",MAX_LAYERS);

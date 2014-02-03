@@ -10,8 +10,10 @@
 int print_layers = 1;
 
 //set bigger values for more warning/status messages
-int print_status = 2;
+int print_status = 1;
 int print_warnings = 1;
+
+loop_type max_loop = 16;  //MAX_LOOP;
 
 void print_help() {
     printf("$cadet libcell.txt chip_dimension.txt placement.txt netlist.txt [wire_size]\n\n");
@@ -32,6 +34,8 @@ int main(int argc, char *argv[]) {
 
     //print_layer(soc.layer,soc.grid_width,soc.grid_height);
     unsigned long failed = 0;
+
+    soc.max_loop = max_loop;
     failed = route_mikami(&soc);
 
     //print_grid(soc.grid,soc.grid_width,soc.grid_height);
@@ -46,10 +50,10 @@ int main(int argc, char *argv[]) {
     }
 
     if (failed)
-        fprintf(stderr,"%lu netlists failed to route in %lu wire layers\n",
+        printf("%lu netlists failed to route in %lu wire layers\n",
                 failed,soc.layer_num);
     else
-        fprintf(stderr,"all netlists succesfully routed in %lu wire layers\n",
+        printf("all netlists succesfully routed in %lu wire layers\n",
                 soc.layer_num);
 
     clear(&soc);
