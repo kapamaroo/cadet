@@ -705,6 +705,9 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
 static layer_element *create_layer(struct analysis_info *soc) {
     assert(soc);
 
+    if (print_status >= 1)
+        fprintf(stderr,"new wire layer (%lu)\n",soc->layer_num);
+
 #if 1
     reset_layer();
     soc->layer_num++;
