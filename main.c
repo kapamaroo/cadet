@@ -10,7 +10,7 @@
 int print_layers = 1;
 
 //set bigger values for more warning/status messages
-int print_status = 1;
+int print_status = 2;
 int print_warnings = 1;
 
 void print_help() {
