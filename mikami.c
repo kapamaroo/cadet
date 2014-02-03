@@ -585,6 +585,24 @@ static int has_intersection(const loop_type loop,
     unsigned long leftcol = MIN(S.y,T.y);
     unsigned long rightcol = MAX(S.y,T.y);
 
+    /*
+       search in the fast path first
+      .-----------------------------.
+      |                             |
+      |             up              |
+      |                             |
+      |------- S ---------.---------|
+      |        :          :         |
+      |  left  :  fast    :  right  |
+      |        :    path  :         |
+      |--------`--------- T --------|
+      |                             |
+      |            down             |
+      |                             |
+      `-----------------------------`
+     */
+
+    //fast path
     for (i=uprow; i<downrow; ++i) {
         for (j=leftcol; j<rightcol; ++j) {
             if (GET_LAYER_STATUS(i,j) != L_TRY)
@@ -601,7 +619,59 @@ static int has_intersection(const loop_type loop,
         }
     }
 
-    for (i=0; i<height; ++i) {
+    //up
+    for (i=0; i<uprow; ++i) {
+        for (j=0; j<width; ++j) {
+            if (GET_LAYER_STATUS(i,j) != L_TRY)
+                continue;
+            if (GET_LAYER_LOOP(i,j) != loop)
+                continue;
+            const unsigned char status = get_connection(LAYER(i,j));
+            if (status == L_WIRE || status == L_VIA) {
+                //found intersection
+                struct ulong_size p = { .x = i, .y = j };
+                mark_path(p,loop,S,T);
+                return 1;
+            }
+        }
+    }
+
+    //left
+    for (i=uprow; i<downrow; ++i) {
+        for (j=0; j<leftcol; ++j) {
+            if (GET_LAYER_STATUS(i,j) != L_TRY)
+                continue;
+            if (GET_LAYER_LOOP(i,j) != loop)
+                continue;
+            const unsigned char status = get_connection(LAYER(i,j));
+            if (status == L_WIRE || status == L_VIA) {
+                //found intersection
+                struct ulong_size p = { .x = i, .y = j };
+                mark_path(p,loop,S,T);
+                return 1;
+            }
+        }
+    }
+
+    //right
+    for (i=uprow; i<downrow; ++i) {
+        for (j=rightcol; j<width; ++j) {
+            if (GET_LAYER_STATUS(i,j) != L_TRY)
+                continue;
+            if (GET_LAYER_LOOP(i,j) != loop)
+                continue;
+            const unsigned char status = get_connection(LAYER(i,j));
+            if (status == L_WIRE || status == L_VIA) {
+                //found intersection
+                struct ulong_size p = { .x = i, .y = j };
+                mark_path(p,loop,S,T);
+                return 1;
+            }
+        }
+    }
+
+    //down
+    for (i=downrow; i<height; ++i) {
         for (j=0; j<width; ++j) {
             if (GET_LAYER_STATUS(i,j) != L_TRY)
                 continue;
