@@ -51,11 +51,11 @@ int main(int argc, char *argv[]) {
         print_layers(&soc);
 
     if (failed) {
-        printf("%lu nets (%05.2f%%) failed to route in %lu wire layers\n",
+        printf("%lu nets (%05.2f%%) failed to route in %d wire layers\n",
                failed,failed/total_nets*100,soc.layer_num);
     }
     else
-        printf("all nets succesfully routed in %lu wire layers, total wire length %f\n",
+        printf("all nets succesfully routed in %d wire layers, total wire length %f\n",
                soc.layer_num,soc.wire_len);
 
     clear(&soc);
