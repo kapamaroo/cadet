@@ -51,8 +51,9 @@ static inline void SET_LAYER_LOOP_TRY(unsigned long x, unsigned long y,
 
 static int mikami(const struct ulong_size S, const struct ulong_size T,
                   const loop_type max_loop, const unsigned long net);
-static unsigned long mikami_one_layer(struct analysis_info *soc,
-                                      const loop_type max_loop);
+static unsigned long mikami_one_layer(struct pool_info *netlist_pool,
+                                      const loop_type max_loop,
+                                      const int layer_num);
 static layer_element *create_layer(struct analysis_info *soc);
 
 static void assure_io(const struct ulong_size S, const struct ulong_size T) {
@@ -107,11 +108,13 @@ unsigned long route_mikami(struct analysis_info *soc) {
 
     const loop_type max_loop = soc->max_loop;
     const double total_nets = soc->pending_nets;
-    while (1) {
+    while (layer) {
         unsigned long failed_nets;
         unsigned long routed_nets;
 
-        failed_nets = mikami_one_layer(soc,max_loop);
+        struct pool_info *netlist = &soc->netlist;
+
+        failed_nets = mikami_one_layer(netlist,max_loop,soc->layer_num);
         routed_nets = soc->pending_nets - failed_nets;
         soc->pending_nets = failed_nets;
 
@@ -119,7 +122,7 @@ unsigned long route_mikami(struct analysis_info *soc) {
             double wire_len = layer_wire_length(soc->layer_num) * soc->wire_size;
             soc->wire_len += wire_len;
             if (print_status >= 1)
-                printf("wire layer #%03lu  %4lu nets routed (%05.2f%%), wire length %9.2f\n",
+                printf("wire layer #%03d  %4lu nets routed (%05.2f%%), wire length %9.2f\n",
                        soc->layer_num,routed_nets,
                        routed_nets/total_nets*100,wire_len);
         }
@@ -132,20 +135,19 @@ unsigned long route_mikami(struct analysis_info *soc) {
         //set global variable
         //layer = create_layer(soc);
         layer = __reset_layer(soc);
-        if (!layer)
-            break;
     }
     return soc->pending_nets;
 }
 
-static unsigned long mikami_one_layer(struct analysis_info *soc,
-                                      const loop_type max_loop) {
+static unsigned long mikami_one_layer(struct pool_info *netlist_pool,
+                                      const loop_type max_loop,
+                                      const int layer_num) {
     unsigned long i;
     unsigned long j;
     unsigned long net = 0;
     unsigned long failed = 0;
-    for (i=0; i<soc->netlist.next; ++i) {
-        struct net_info *netlist = (struct net_info *)(soc->netlist.data) + i;
+    for (i=0; i<netlist_pool->next; ++i) {
+        struct net_info *netlist = (struct net_info *)(netlist_pool->data) + i;
         for (j=0; j<netlist->num_drain; ++j,++net) {
             if (netlist->successfully_routed[j]) {
                 if (print_status >= 2)
@@ -161,7 +163,7 @@ static unsigned long mikami_one_layer(struct analysis_info *soc,
                 failed++;
             else {
                 netlist->drain[j]->next_free_input_slot++;
-                netlist->successfully_routed[j] = soc->layer_num;
+                netlist->successfully_routed[j] = layer_num;
             }
         }
     }
