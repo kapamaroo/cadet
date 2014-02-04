@@ -75,7 +75,7 @@ struct analysis_info {
     grid_element *grid;
 
     layer_element *layer[MAX_LAYERS];
-    unsigned long layer_num;
+    int layer_num;
 
     loop_type max_loop;
     unsigned long pending_nets;
