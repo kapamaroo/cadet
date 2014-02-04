@@ -133,7 +133,6 @@ void put_placement(struct placement_info *p, const double wire_size,
     assert(p);
     assert(p->type == I_CELL);
     assert(soc);
-    assert(soc->grid);
     assert(soc->layer[0]);
 
     if (print_warnings < 2)
@@ -174,6 +173,7 @@ void put_placement(struct placement_info *p, const double wire_size,
     unsigned long j;
 
 #if 0
+    assert(soc->grid);
     for (i=start_x; i<end_x; ++i)
         for (j=start_y; j<end_y; ++j)
             soc->grid[i*soc->grid_width + j] = G_BLOCKED;
@@ -300,7 +300,9 @@ void analyse(struct analysis_info *soc, const double wire_size) {
 
 void clear(struct analysis_info *soc) {
     assert(soc);
-    free(soc->grid);
+
+    if (soc->grid)
+        free(soc->grid);
 
     unsigned long i;
 
