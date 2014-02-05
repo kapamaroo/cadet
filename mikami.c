@@ -54,6 +54,10 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
 static unsigned long mikami_one_layer(struct pool_info *netlist_pool,
                                       const loop_type max_loop,
                                       const int layer_num);
+static unsigned long mikami_one_net(struct net_info *net,
+                                    const loop_type max_loop,
+                                    const int layer_num,
+                                    const unsigned long idx);
 static layer_element *create_layer(struct analysis_info *soc);
 static void quicksort(struct net_info *a, unsigned long l, unsigned long r);
 
@@ -151,50 +155,52 @@ static unsigned long mikami_one_layer(struct pool_info *netlist_pool,
     for (i=0; i<netlist_pool->next; ++i) {
         unsigned long idx = netlist_pool->next - i - 1;
         struct net_info *net = (struct net_info *)(netlist_pool->data) + idx;
-        if (NET_ROUTED(net)) {
-            if (print_status >= 2)
-                printf("   skip %4lu (routed in layer %d)\n",
-                       idx,net->status);
-            continue;
-        }
-        unsigned long next_input = net->drain->next_free_input_slot;
-        struct ulong_size S = net->source->slot[0].usize;  //output
-        struct ulong_size T = net->drain->slot[next_input].usize;  //input
-        int error = mikami(S,T,max_loop,idx);
-        if (error) {
+        int ok = mikami_one_net(net,max_loop,layer_num,idx);
+        if (!ok) {
             failed++;
             limit = idx;
             break;
         }
-        if (net->drain->type == I_CELL)
-            net->drain->next_free_input_slot++;
-        net->status = layer_num;
     }
 
     //forward
     for (i=0; i<limit; ++i) {
         unsigned long idx = i;
         struct net_info *net = (struct net_info *)(netlist_pool->data) + idx;
-        if (NET_ROUTED(net)) {
-            if (print_status >= 2)
-                printf("   skip %4lu (routed in layer %d)\n",
-                       idx,net->status);
-            continue;
-        }
-        unsigned long next_input = net->drain->next_free_input_slot;
-        struct ulong_size S = net->source->slot[0].usize;  //output
-        struct ulong_size T = net->drain->slot[next_input].usize;  //input
-        int error = mikami(S,T,max_loop,idx);
-        if (error) {
+        int ok = mikami_one_net(net,max_loop,layer_num,idx);
+        if (!ok)
             failed++;
-            continue;
-        }
-        if (net->drain->type == I_CELL)
-            net->drain->next_free_input_slot++;
-        net->status = layer_num;
     }
 
     return failed;
+}
+
+static unsigned long mikami_one_net(struct net_info *net,
+                                    const loop_type max_loop,
+                                    const int layer_num,
+                                    const unsigned long idx) {
+    //return 0 on failure
+
+    if (NET_ROUTED(net)) {
+        if (print_status >= 2)
+            printf("   skip %4lu (routed in layer %d)\n",
+                   idx,net->status);
+        return 1;
+    }
+
+    unsigned long next_input = net->drain->next_free_input_slot;
+    struct ulong_size S = net->source->slot[0].usize;  //output
+    struct ulong_size T = net->drain->slot[next_input].usize;  //input
+
+    int ok = mikami(S,T,max_loop,idx);
+    if (!ok)
+        return 0;
+
+    if (net->drain->type == I_CELL)
+        net->drain->next_free_input_slot++;
+    net->status = layer_num;
+
+    return 1;
 }
 
 static inline int blocked(const unsigned long x, const unsigned long y) {
@@ -813,12 +819,12 @@ static int try_again(const loop_type loop) {
 
 static int mikami(const struct ulong_size S, const struct ulong_size T,
                   const loop_type max_loop, const unsigned long net) {
-    //return 0 on success
+    //return 0 on failure, else the loop number of path
 
     if (!max_loop) {
         if (print_status >= 3)
             fprintf(stderr,"in mikami() call: no max_loop limit, fail\n");
-        return 1;
+        return 0;
     }
 
     assure_io(S,T);
@@ -855,7 +861,10 @@ static int mikami(const struct ulong_size S, const struct ulong_size T,
         else if (full)
             printf("failed: layer is full (loop=%d)\n",loop);
     }
-    return path_found ? 0 : 1;
+
+    if (!path_found)
+        return 0;
+    return loop;
 }
 
 static inline layer_element *create_layer(struct analysis_info *soc) {
