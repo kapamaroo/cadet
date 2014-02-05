@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <math.h>
 
 #include "pool.h"
 #include "parser_core.h"
@@ -38,33 +39,31 @@ static void check_placement(struct placement_info *placement) {
 static void check_net(struct net_info *net) {
     assert(net);
     assert(net->source);
+    assert(net->drain);
 
     switch (net->source->type) {
     case I_CELL:
     case I_INPUT:
-        assert(net->num_drain >= 1);
         break;
     case I_OUTPUT:
-        //assert(net->num_drain == 1);
-        assert(net->num_drain >= 1);
         //some outputs connect to more than 1 cells ??
         //break;  //disable warning
-        if (net->num_drain > 1 && print_warnings) {
-            printf(" * WARNING: multiple inputs/cells connected to output:");
-            printf("   %lu-to-1:    {",net->num_drain);
+        if (net->source->input_gates > 1 && print_warnings) {
+#if 0
+            printf("***  WARNING  ***  multiple inputs/cells connected to output:");
+            printf("   %lu-to-1:    {",net->source->input_gates);
             unsigned long i;
             //print all but last
             for (i=0; i<net->num_drain-1; ++i)
                 printf("%s, ",net->drain[i]->name);
             //print last
             printf("%s}  -->  {%s}\n",net->drain[i]->name,net->source->name);
+#else
+            printf("***  WARNING  ***  multiple inputs/cells connected to output:");
+            printf("   %lu-to-1\n",net->source->input_gates);
+#endif
         }
         break;
-    }
-
-    unsigned long i;
-    for (i=0; i<net->num_drain; ++i) {
-        assert(net->drain[i]);
     }
 }
 
@@ -258,42 +257,70 @@ struct pool_info parse_netlist(struct file_info *input,
 
     while (input->pos) {
         //parse net
-        grow(&output);
-        struct net_info *net = (struct net_info *)(output.data) + output.next++;
-        memset(net,0,sizeof(struct net_info));
 
         //parse name
         parse_eat_whitechars(input);
-        net->name = parse_string(input,"net name");
+        char *net_name = parse_string(input,"net name");
 
         //parse source
         parse_eat_whitechars(input);
         char *source_name = parse_string(input,"source name");
-        net->source = get_placement(source_name,placement);
-        if (!net->source) {
-            printf("error:%lu:unknown placement '%s' - exit\n",input->line_num,source_name);
+        struct placement_info *common_source = get_placement(source_name,placement);
+        if (!common_source) {
+            printf("error:%lu:unknown placement '%s' - exit\n",
+                   input->line_num,source_name);
             exit(EXIT_FAILURE);
         }
-
-        net->source->output_gates++;
         free(source_name);
 
-        while (*input->pos != ';' && net->num_drain < MAX_NET_DRAIN) {
+        while (*input->pos != ';') {
+            grow(&output);
+            struct net_info *net = (struct net_info *)(output.data) + output.next++;
+            memset(net,0,sizeof(struct net_info));
+
+            net->name = strdup(net_name);
+            net->source = common_source;
+            if (net->source->type == I_INPUT) {
+                net->source->input_gates = 1;
+                net->source->output_gates++;
+            }
+            else if (net->source->type == I_OUTPUT) {
+                net->source->input_gates++;
+                net->source->output_gates = 1;
+            }
+            else
+                net->source->output_gates++;
+
             //parse drain
             parse_eat_whitechars(input);
-            unsigned long i = net->num_drain++;
-
             char *drain_name = parse_string(input,"drain name");
-            net->drain[i] = get_placement(drain_name,placement);
-            free(drain_name);
-
-            if (!net->drain[i]){
-                printf("error:%lu:unknown placement '%s' - exit\n",input->line_num,source_name);
+            struct placement_info *drain = get_placement(drain_name,placement);
+            if (!drain) {
+                printf("error:%lu:unknown placement '%s' - exit\n",
+                       input->line_num,drain_name);
                 exit(EXIT_FAILURE);
             }
-            net->drain[i]->input_gates++;
-            assert(net->drain[i]->input_gates <= MAX_INPUT_SLOTS);
+            free(drain_name);
+
+            net->drain = drain;
+            if (net->drain->type == I_INPUT) {
+                net->drain->input_gates = 1;
+                net->drain->output_gates++;
+            }
+            else if (net->drain->type == I_OUTPUT) {
+                net->drain->input_gates++;
+                net->drain->output_gates = 1;
+            }
+            else
+                net->drain->input_gates++;
+
+            double tmp1 = fabs(common_source->dim.fsize.x - drain->dim.fsize.x);
+            double tmp2 = fabs(common_source->dim.fsize.x - drain->dim.fsize.x);
+
+            net->weight = sqrt(tmp1*tmp1 + tmp2*tmp2);
+
             (*nets)++;
+            check_net(net);
         }
 
         if (*input->pos == ';')
@@ -304,7 +331,6 @@ struct pool_info parse_netlist(struct file_info *input,
             printf("%s:***  WARNING  ***  %d bad characters at end of line %lu\n",
                    __FUNCTION__,bad_chars,input->line_num);
         parse_eat_newline(input);
-        check_net(net);
     }
 
     return output;

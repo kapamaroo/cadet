@@ -179,43 +179,28 @@ void put_placement(struct placement_info *p, const double wire_size,
             soc->grid[i*soc->grid_width + j] = G_BLOCKED;
 #endif
 
-    if (p->output_gates == 0 && print_warnings >= 2) {
-        printf("***  WARNING  ***  unused output of placement '%s'\n",p->name);
-    }
     //consider just one output
     unsigned long total_io = p->input_gates + 1;
-    unsigned long y_space = (end_y - start_y)/(total_io+1);
+    p->slot = (struct dim_size *)_calloc(total_io,sizeof(struct dim_size));
 
-    //fixed xaxis
-    //i = start_x + (end_x - start_x)/2;
+    unsigned long y_space = (end_y - start_y)/(total_io+1);
     unsigned long x_space = (end_x - start_x)/(total_io+1);
 
-    //find inputs' coordinates
-    unsigned long input_slot = 0;
-    for (input_slot = 0; input_slot<p->input_gates; ++input_slot) {
-        i = start_x + (input_slot + 1) * x_space;
-        j = start_y + (input_slot + 1) * y_space;
-
-        p->input_slots[input_slot].usize.x = i;
-        p->input_slots[input_slot].usize.y = j;
+    //find io coordinates
+    unsigned long _slot = 0;
+    for (_slot = 0; _slot<total_io; ++_slot) {
+        i = start_x + (_slot + 1) * x_space;
+        j = start_y + (_slot + 1) * y_space;
 
         assert(i < soc->grid_height);
         assert(j < soc->grid_width);
 
+        p->slot[_slot].usize.x = i;
+        p->slot[_slot].usize.y = j;
+
         soc->layer[0][i*soc->grid_width + j].loop_status = L_IO;
     }
-
-    //find output's coordinates
-    i = start_x + (total_io) * x_space;
-    j = start_y + (total_io) * y_space;
-
-    p->output_slot.usize.x = i;
-    p->output_slot.usize.y = j;
-
-    assert(i < soc->grid_height);
-    assert(j < soc->grid_width);
-
-    soc->layer[0][i*soc->grid_width + j].loop_status = L_IO;
+    p->next_free_input_slot = 1;
 }
 
 void put_chip_io(struct placement_info *io, const double wire_size,
@@ -249,8 +234,10 @@ void put_chip_io(struct placement_info *io, const double wire_size,
         exit(EXIT_FAILURE);
     }
 
-    io->output_slot.usize.x = x;
-    io->output_slot.usize.y = y;
+    io->slot = (struct dim_size *)_calloc(1,sizeof(struct dim_size));
+    io->slot[0].usize.x = x;
+    io->slot[0].usize.y = y;
+    io->next_free_input_slot = 0;
 
     soc->layer[0][x*soc->grid_width + y].loop_status = L_IO;
 }

@@ -18,7 +18,7 @@ int print_warnings = 1;
 #endif
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
-loop_type max_loop = MIN(16,MAX_LOOP);
+loop_type max_loop = MIN(8,MAX_LOOP);
 #undef MIN
 
 void print_help() {
@@ -31,11 +31,22 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    int i;
+    for (i=0; i<argc; ++i)
+        fprintf(stderr,"%s ",argv[i]);
+    fprintf(stderr,"\n");
+    for (i=0; i<argc; ++i)
+        fprintf(stdout,"%s ",argv[i]);
+    fprintf(stdout,"\n");
+
     struct analysis_info soc;
     parse(argv[1],argv[2],argv[3],argv[4],&soc);
 
     double total_nets = soc.pending_nets;
     double wire_size = (argc == 6) ? atof(argv[5]) : DEFAULT_WIRE_SIZE;
+
+    printf("Total %4lu nets to route ...\n",soc.pending_nets);
+
     fprintf(stderr,"use wire size %g\n",wire_size);
     analyse(&soc,wire_size);
 
@@ -51,12 +62,12 @@ int main(int argc, char *argv[]) {
         print_layers(&soc);
 
     if (failed) {
-        printf("%lu nets (%05.2f%%) failed to route in %d wire layers\n",
-               failed,failed/total_nets*100,soc.layer_num);
+        printf("%lu nets (%05.2f%%) failed to route in %d wire layers (wire size %.2f)\n",
+               failed,failed/total_nets*100,soc.layer_num,wire_size);
     }
     else
-        printf("all nets succesfully routed in %d wire layers, total wire length %f\n",
-               soc.layer_num,soc.wire_len);
+        printf("all nets succesfully routed in %d wire layers, total wire length %.2f, wire size %.2f\n",
+               soc.layer_num,soc.wire_len,wire_size);
 
     clear(&soc);
     return 0;

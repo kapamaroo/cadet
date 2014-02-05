@@ -55,6 +55,7 @@ static unsigned long mikami_one_layer(struct pool_info *netlist_pool,
                                       const loop_type max_loop,
                                       const int layer_num);
 static layer_element *create_layer(struct analysis_info *soc);
+static void quicksort(struct net_info *a, unsigned long l, unsigned long r);
 
 static void assure_io(const struct ulong_size S, const struct ulong_size T) {
 #if 1
@@ -104,7 +105,6 @@ unsigned long route_mikami(struct analysis_info *soc) {
     height = soc->grid_height;
 
     assert(L_TRY == 1);
-    printf("Total %4lu nets to route ...\n",soc->pending_nets);
 
     const loop_type max_loop = soc->max_loop;
     const double total_nets = soc->pending_nets;
@@ -113,6 +113,7 @@ unsigned long route_mikami(struct analysis_info *soc) {
         unsigned long routed_nets;
 
         struct pool_info *netlist = &soc->netlist;
+        quicksort((struct net_info *)(netlist->data),0,netlist->next);
 
         failed_nets = mikami_one_layer(netlist,max_loop,soc->layer_num);
         routed_nets = soc->pending_nets - failed_nets;
@@ -143,30 +144,56 @@ static unsigned long mikami_one_layer(struct pool_info *netlist_pool,
                                       const loop_type max_loop,
                                       const int layer_num) {
     unsigned long i;
-    unsigned long j;
-    unsigned long net = 0;
     unsigned long failed = 0;
+    unsigned long limit = netlist_pool->next;
+
+    //backward
     for (i=0; i<netlist_pool->next; ++i) {
-        struct net_info *netlist = (struct net_info *)(netlist_pool->data) + i;
-        for (j=0; j<netlist->num_drain; ++j,++net) {
-            if (netlist->successfully_routed[j]) {
-                if (print_status >= 2)
-                    printf("   skip %4lu (routed in layer %d)\n",
-                           net,netlist->successfully_routed[j]);
-                continue;
-            }
-            unsigned long next_input = netlist->drain[j]->next_free_input_slot;
-            struct ulong_size S = netlist->source->output_slot.usize;
-            struct ulong_size T = netlist->drain[j]->input_slots[next_input].usize;
-            int error = mikami(S,T,max_loop,net);
-            if (error)
-                failed++;
-            else {
-                netlist->drain[j]->next_free_input_slot++;
-                netlist->successfully_routed[j] = layer_num;
-            }
+        unsigned long idx = netlist_pool->next - i - 1;
+        struct net_info *net = (struct net_info *)(netlist_pool->data) + idx;
+        if (NET_ROUTED(net)) {
+            if (print_status >= 2)
+                printf("   skip %4lu (routed in layer %d)\n",
+                       idx,net->status);
+            continue;
         }
+        unsigned long next_input = net->drain->next_free_input_slot;
+        struct ulong_size S = net->source->slot[0].usize;  //output
+        struct ulong_size T = net->drain->slot[next_input].usize;  //input
+        int error = mikami(S,T,max_loop,idx);
+        if (error) {
+            failed++;
+            limit = idx;
+            break;
+        }
+        if (net->drain->type == I_CELL)
+            net->drain->next_free_input_slot++;
+        net->status = layer_num;
     }
+
+    //forward
+    for (i=0; i<limit; ++i) {
+        unsigned long idx = i;
+        struct net_info *net = (struct net_info *)(netlist_pool->data) + idx;
+        if (NET_ROUTED(net)) {
+            if (print_status >= 2)
+                printf("   skip %4lu (routed in layer %d)\n",
+                       idx,net->status);
+            continue;
+        }
+        unsigned long next_input = net->drain->next_free_input_slot;
+        struct ulong_size S = net->source->slot[0].usize;  //output
+        struct ulong_size T = net->drain->slot[next_input].usize;  //input
+        int error = mikami(S,T,max_loop,idx);
+        if (error) {
+            failed++;
+            continue;
+        }
+        if (net->drain->type == I_CELL)
+            net->drain->next_free_input_slot++;
+        net->status = layer_num;
+    }
+
     return failed;
 }
 
@@ -856,4 +883,34 @@ static inline layer_element *create_layer(struct analysis_info *soc) {
 
     soc->layer[soc->layer_num++] = new_layer;
     return new_layer;
+}
+
+//Quick sort implementation
+//Initial code from:
+//http://www.comp.dit.ie/rlawlor/Alg_DS/sorting/quickSort.c
+static unsigned long partition(struct net_info *a, unsigned long  l,
+                               unsigned long r) {
+    double pivot = a[l].weight;
+    unsigned long i = l;
+    unsigned long j = r;
+
+    struct net_info tmp;
+
+    while (1) {
+        do ++i; while (i < r && a[i].weight <= pivot);
+        do --j; while (a[j].weight > pivot);
+        if( i >= j ) break;
+        tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    tmp = a[l]; a[l] = a[j]; a[j] = tmp;
+    return j;
+}
+
+static void quicksort(struct net_info *a, unsigned long l, unsigned long r) {
+    unsigned long j;
+    if (l < r) {
+        j = partition(a,l,r);
+        quicksort(a,l,j);
+        quicksort(a,j+1,r);
+    }
 }
