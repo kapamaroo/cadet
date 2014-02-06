@@ -300,6 +300,7 @@ static void try_down(struct ulong_size P, const loop_type loop,
 /////////////////////////////////////////////////////////////
 //  return L_TRY and sets *next point to mark_path()
 /////////////////////////////////////////////////////////////
+#define MARK_POINT(x,y,b) do { LAYER_STATUS(x,y) = b; } while (0);
 
 static int mark_left(struct ulong_size P, loop_type loop, struct ulong_size *next) {
     unsigned long j = P.y;
@@ -314,7 +315,7 @@ static int mark_left(struct ulong_size P, loop_type loop, struct ulong_size *nex
             next->y = j;
             return L_TRY;
         }
-        LAYER_STATUS(P.x,j) = L_WIRE;
+        MARK_POINT(P.x,j,L_WIRE);
         j--;
     }
     //check first column
@@ -325,7 +326,7 @@ static int mark_left(struct ulong_size P, loop_type loop, struct ulong_size *nex
         next->y = 0;
         return L_TRY;
     }
-    LAYER_STATUS(P.x,0) = L_WIRE;
+    MARK_POINT(P.x,0,L_WIRE);
     return L_INVALID;
 }
 
@@ -341,7 +342,7 @@ static int mark_right(struct ulong_size P, loop_type loop,
             next->y = j;
             return L_TRY;
         }
-        LAYER_STATUS(P.x,j) = L_WIRE;
+        MARK_POINT(P.x,j,L_WIRE);
         j++;
     }
     return L_INVALID;
@@ -360,7 +361,7 @@ static int mark_up(struct ulong_size P, loop_type loop, struct ulong_size *next)
             next->y = P.y;
             return L_TRY;
         }
-        LAYER_STATUS(i,P.y) = L_WIRE;
+        MARK_POINT(i,P.y,L_WIRE);
         i--;
     }
     //check first row
@@ -371,7 +372,7 @@ static int mark_up(struct ulong_size P, loop_type loop, struct ulong_size *next)
         next->y = P.y;
         return L_TRY;
     }
-    LAYER_STATUS(0,P.y) = L_WIRE;
+    MARK_POINT(0,P.y,L_WIRE);
     return L_INVALID;
 }
 
@@ -386,11 +387,13 @@ static int mark_down(struct ulong_size P, loop_type loop, struct ulong_size *nex
             next->y = P.y;
             return L_TRY;
         }
-        LAYER_STATUS(i,P.y) = L_WIRE;
+        MARK_POINT(i,P.y,L_WIRE);
         i++;
     }
     return L_INVALID;
 }
+
+#undef MARK_POINT
 
 static void mark_path(const struct ulong_size P, const loop_type loop,
                       const struct ulong_size S, const struct ulong_size T) {
@@ -412,6 +415,8 @@ static void mark_path(const struct ulong_size P, const loop_type loop,
         exit(EXIT_FAILURE);                                             \
     } while (0);
 
+#define MARK_POINT(b) do { LAYER_STATUS(P.x,P.y) = b; } while (0);
+
     //mark the opposite directions
 
     assert(loop > 0);
@@ -423,83 +428,83 @@ static void mark_path(const struct ulong_size P, const loop_type loop,
 
     //from source
     if (s == (S_TRY_WIRE_LEFT | T_TRY_WIRE_RIGHT)) {
-        LAYER_STATUS(P.x,P.y) = L_WIRE;
+        MARK_POINT(L_WIRE);
         RECURSION_MARK_PATH(right);
         RECURSION_MARK_PATH(left);
     }
     else if (s == (S_TRY_WIRE_LEFT | T_TRY_WIRE_UP)) {
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         RECURSION_MARK_PATH(right);
         RECURSION_MARK_PATH(down);
     }
     else if (s == (S_TRY_WIRE_LEFT | T_TRY_WIRE_DOWN)) {
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         RECURSION_MARK_PATH(right);
         RECURSION_MARK_PATH(up);
     }
     else if (s == (S_TRY_WIRE_RIGHT | T_TRY_WIRE_UP)) {
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         RECURSION_MARK_PATH(left);
         RECURSION_MARK_PATH(down);
     }
     else if (s == (S_TRY_WIRE_RIGHT | T_TRY_WIRE_DOWN)) {
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         RECURSION_MARK_PATH(left);
         RECURSION_MARK_PATH(up);
     }
     else if (s == (S_TRY_WIRE_UP | T_TRY_WIRE_DOWN)) {
-        LAYER_STATUS(P.x,P.y) = L_WIRE;
+        MARK_POINT(L_WIRE);
         RECURSION_MARK_PATH(down);
         RECURSION_MARK_PATH(up);
     }
 
     //from term
     else if (s == (T_TRY_WIRE_LEFT | S_TRY_WIRE_RIGHT)) {
-        LAYER_STATUS(P.x,P.y) = L_WIRE;
+        MARK_POINT(L_WIRE);
         RECURSION_MARK_PATH(right);
         RECURSION_MARK_PATH(left);
     }
     else if (s == (T_TRY_WIRE_LEFT | S_TRY_WIRE_UP)) {
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         RECURSION_MARK_PATH(right);
         RECURSION_MARK_PATH(down);
     }
     else if (s == (T_TRY_WIRE_LEFT | S_TRY_WIRE_DOWN)) {
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         RECURSION_MARK_PATH(right);
         RECURSION_MARK_PATH(up);
     }
     else if (s == (T_TRY_WIRE_RIGHT | S_TRY_WIRE_UP)) {
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         RECURSION_MARK_PATH(left);
         RECURSION_MARK_PATH(down);
     }
     else if (s == (T_TRY_WIRE_RIGHT | S_TRY_WIRE_DOWN)) {
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         RECURSION_MARK_PATH(left);
         RECURSION_MARK_PATH(up);
     }
     else if (s == (T_TRY_WIRE_UP | S_TRY_WIRE_DOWN)) {
-        LAYER_STATUS(P.x,P.y) = L_WIRE;
+        MARK_POINT(L_WIRE);
         RECURSION_MARK_PATH(down);
         RECURSION_MARK_PATH(up);
     }
 
     //mid-points with one possible direction
     else if (s == S_TRY_WIRE_LEFT || s == T_TRY_WIRE_LEFT) {
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         RECURSION_MARK_PATH(right);
     }
     else if (s == S_TRY_WIRE_RIGHT || s == T_TRY_WIRE_RIGHT) {
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         RECURSION_MARK_PATH(left);
     }
     else if (s == S_TRY_WIRE_UP || s == T_TRY_WIRE_UP) {
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         RECURSION_MARK_PATH(down);
     }
     else if (s == S_TRY_WIRE_DOWN || s == T_TRY_WIRE_DOWN) {
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         RECURSION_MARK_PATH(up);
     }
 
@@ -520,7 +525,7 @@ static void mark_path(const struct ulong_size P, const loop_type loop,
         if (!(LAYER_TRY(P.x,P.y) & S_TRY_WIRE_DOWN))
             d = invalid;
 
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         if (MIN4(l,r,u,d) == l) {
             RECURSION_MARK_PATH(right);
         }
@@ -552,7 +557,7 @@ static void mark_path(const struct ulong_size P, const loop_type loop,
         if (!(LAYER_TRY(P.x,P.y) & T_TRY_WIRE_DOWN))
             d = invalid;
 
-        LAYER_STATUS(P.x,P.y) = L_VIA;
+        MARK_POINT(L_VIA);
         if (MIN4(l,r,u,d) == l) {
             RECURSION_MARK_PATH(right);
         }
@@ -576,6 +581,7 @@ static void mark_path(const struct ulong_size P, const loop_type loop,
 
 #undef RECURSION_MARK_PATH
 #undef MARK_PATH_FAILURE_CODE
+#undef MARK_POINT
 }
 
 static inline unsigned char get_connection(const layer_element el) {

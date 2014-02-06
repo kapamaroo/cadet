@@ -14,9 +14,9 @@
 //status
 #define L_EMPTY            0
 #define L_TRY             (1 << 0)
-#define L_IO              (1 << 1)
-#define L_WIRE            (1 << 2)
-#define L_VIA             (1 << 3)
+#define L_WIRE            (1 << 1)
+#define L_VIA             (1 << 2)
+#define L_IO              (1 << 3)
 
 #define L_START           (1 << 4)
 #define L_TERM            (1 << 5)
