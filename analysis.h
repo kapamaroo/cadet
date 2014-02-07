@@ -45,8 +45,13 @@
 #define S_TRY_HORIZONTAL (S_TRY_WIRE_LEFT | S_TRY_WIRE_RIGHT)
 #define S_TRY_VERTICAL   (S_TRY_WIRE_UP | S_TRY_WIRE_DOWN)
 
-#define MAX_LOOP 128
-typedef unsigned char loop_type;  //7 bits only, if low bit is 1 aka L_TRY
+typedef unsigned char loop_type;
+
+//4 high bits only, if low bit is 1 (aka L_TRY)
+#define LOOP_BITS 4
+#define NON_LOOP_BITS (sizeof(loop_type)*8 - LOOP_BITS)
+
+#define MAX_LOOP (1 << LOOP_BITS)
 
 struct _layer_element_ {
     unsigned char loop_status;  //uses the lower 4 bits only
