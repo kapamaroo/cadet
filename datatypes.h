@@ -56,14 +56,22 @@ struct placement_info {
                             // and input for I_OUTPUT
 };
 
-#define NET_ROUTED(net)  ((net)->status >= 1)
+#define DRAIN_ROUTED(drain)  ((drain)->status >= 1)
+
+#define MAX_NET_DRAIN 128
+
+struct drain_info {
+    struct placement_info *drain;
+    int status;  //if >= 1, is the layer_number, else not routed
+    double weight;
+};
 
 struct net_info {
     char *name;
 
     struct placement_info *source;
-    struct placement_info *drain;
-    int status;  //if >= 1, is the layer_number, else not routed
+    struct drain_info path[MAX_NET_DRAIN];
+    unsigned int drain_num;
     double weight;
 
     /*

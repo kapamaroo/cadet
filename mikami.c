@@ -198,9 +198,9 @@ static unsigned long mikami_one_layer(struct pool_info *netlist_pool,
     for (i=0; i<netlist_pool->next; ++i) {
         unsigned long idx = netlist_pool->next - i - 1;
         struct net_info *net = (struct net_info *)(netlist_pool->data) + idx;
-        int ok = mikami_one_net(net,max_loop,layer_num,idx);
-        if (!ok) {
-            failed++;
+        int failed_drains = mikami_one_net(net,max_loop,layer_num,idx);
+        if (failed_drains) {
+            failed += failed_drains;
             limit = idx;
             break;
         }
@@ -210,9 +210,9 @@ static unsigned long mikami_one_layer(struct pool_info *netlist_pool,
     for (i=0; i<limit; ++i) {
         unsigned long idx = i;
         struct net_info *net = (struct net_info *)(netlist_pool->data) + idx;
-        int ok = mikami_one_net(net,max_loop,layer_num,idx);
-        if (!ok)
-            failed++;
+        int failed_drains = mikami_one_net(net,max_loop,layer_num,idx);
+        if (failed_drains)
+            failed += failed_drains;
     }
 
     return failed;
@@ -222,27 +222,31 @@ static unsigned long mikami_one_net(struct net_info *net,
                                     const loop_type max_loop,
                                     const int layer_num,
                                     const unsigned long idx) {
-    //return 0 on failure
+    unsigned int failed = 0;
+    unsigned int i;
+    for (i=0; i<net->drain_num; ++i) {
+        if (DRAIN_ROUTED(&net->path[i])) {
+            if (print_status >= 2)
+                printf("   skip %4lu (routed in layer %d)\n",
+                       idx,net->path[i].status);
+            continue;
+        }
 
-    if (NET_ROUTED(net)) {
-        if (print_status >= 2)
-            printf("   skip %4lu (routed in layer %d)\n",
-                   idx,net->status);
-        return 1;
-    }
+        unsigned long next_input = net->path[i].drain->next_free_input_slot;
+        struct ulong_size S = net->source->slot[0].usize;  //output
+        struct ulong_size T = net->path[i].drain->slot[next_input].usize;  //input
 
-    unsigned long next_input = net->drain->next_free_input_slot;
-    struct ulong_size S = net->source->slot[0].usize;  //output
-    struct ulong_size T = net->drain->slot[next_input].usize;  //input
-
-    int ok = mikami(S,T,max_loop,idx);
-    if (ok) {
-        if (net->drain->type == I_CELL)
-            net->drain->next_free_input_slot++;
-        net->status = layer_num;
+        int ok = mikami(S,T,max_loop,idx);
+        if (ok) {
+            if (net->path[i].drain->type == I_CELL)
+                net->path[i].drain->next_free_input_slot++;
+            net->path[i].status = layer_num;
+        }
+        else
+            failed++;
     }
     clean_layer_after_net();
-    return ok;
+    return failed;
 }
 
 static inline int blocked(const unsigned long x, const unsigned long y) {

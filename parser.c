@@ -39,31 +39,34 @@ static void check_placement(struct placement_info *placement) {
 static void check_net(struct net_info *net) {
     assert(net);
     assert(net->source);
-    assert(net->drain);
 
-    switch (net->source->type) {
-    case I_CELL:
-    case I_INPUT:
-        break;
-    case I_OUTPUT:
-        //some outputs connect to more than 1 cells ??
-        //break;  //disable warning
-        if (net->source->input_gates > 1 && print_warnings) {
+    unsigned int i;
+    for (i=0; i<net->drain_num; ++i) {
+        assert(net->path[i].drain);
+        switch (net->source->type) {
+        case I_CELL:
+        case I_INPUT:
+            break;
+        case I_OUTPUT:
+            //some outputs connect to more than 1 cells ??
+            //break;  //disable warning
+            if (net->source->input_gates > 1 && print_warnings) {
 #if 0
-            printf("***  WARNING  ***  multiple inputs/cells connected to output:");
-            printf("   %lu-to-1:    {",net->source->input_gates);
-            unsigned long i;
-            //print all but last
-            for (i=0; i<net->num_drain-1; ++i)
-                printf("%s, ",net->drain[i]->name);
-            //print last
-            printf("%s}  -->  {%s}\n",net->drain[i]->name,net->source->name);
+                printf("***  WARNING  ***  multiple inputs/cells connected to output:");
+                printf("   %lu-to-1:    {",net->source->input_gates);
+                unsigned long i;
+                //print all but last
+                for (i=0; i<net->num_drain-1; ++i)
+                    printf("%s, ",net->drain[i]->name);
+                //print last
+                printf("%s}  -->  {%s}\n",net->drain[i]->name,net->source->name);
 #else
-            printf("***  WARNING  ***  multiple inputs/cells connected to output:");
-            printf("   %lu-to-1\n",net->source->input_gates);
+                printf("***  WARNING  ***  multiple inputs/cells connected to output:");
+                printf("   %lu-to-1\n",net->source->input_gates);
 #endif
+            }
+            break;
         }
-        break;
     }
 }
 
@@ -273,23 +276,26 @@ struct pool_info parse_netlist(struct file_info *input,
         }
         free(source_name);
 
-        while (*input->pos != ';') {
-            grow(&output);
-            struct net_info *net = (struct net_info *)(output.data) + output.next++;
-            memset(net,0,sizeof(struct net_info));
+        grow(&output);
+        struct net_info *net = (struct net_info *)(output.data) + output.next++;
+        memset(net,0,sizeof(struct net_info));
 
-            net->name = strdup(net_name);
-            net->source = common_source;
-            if (net->source->type == I_INPUT) {
-                net->source->input_gates = 1;
-                net->source->output_gates++;
+        net->name = strdup(net_name);
+        net->source = common_source;
+
+        while (*input->pos != ';') {
+            if (common_source->type == I_INPUT) {
+                common_source->input_gates = 1;
+                common_source->output_gates++;
             }
-            else if (net->source->type == I_OUTPUT) {
-                net->source->input_gates++;
-                net->source->output_gates = 1;
+            else if (common_source->type == I_OUTPUT) {
+                common_source->input_gates++;
+                common_source->output_gates = 1;
             }
             else
-                net->source->output_gates++;
+                common_source->output_gates++;
+
+            const unsigned int i = net->drain_num;
 
             //parse drain
             parse_eat_whitechars(input);
@@ -302,26 +308,34 @@ struct pool_info parse_netlist(struct file_info *input,
             }
             free(drain_name);
 
-            net->drain = drain;
-            if (net->drain->type == I_INPUT) {
-                net->drain->input_gates = 1;
-                net->drain->output_gates++;
+            if (drain->type == I_INPUT) {
+                drain->input_gates = 1;
+                drain->output_gates++;
             }
-            else if (net->drain->type == I_OUTPUT) {
-                net->drain->input_gates++;
-                net->drain->output_gates = 1;
+            else if (drain->type == I_OUTPUT) {
+                drain->input_gates++;
+                drain->output_gates = 1;
             }
             else
-                net->drain->input_gates++;
+                drain->input_gates++;
+
+            net->path[i].drain = drain;
 
             double tmp1 = fabs(common_source->dim.fsize.x - drain->dim.fsize.x);
             double tmp2 = fabs(common_source->dim.fsize.x - drain->dim.fsize.x);
+            double weight = sqrt(tmp1*tmp1 + tmp2*tmp2);
+            net->path[i].weight = weight;
+            net->weight += net->path[i].weight;
 
-            net->weight = sqrt(tmp1*tmp1 + tmp2*tmp2);
-
+            net->drain_num++;
+            if (net->drain_num == MAX_NET_DRAIN) {
+                fprintf(stderr,"path limit per net reached (%d) - exit\n",MAX_NET_DRAIN);
+                assert(0 && "path limit per net reached");
+                exit(EXIT_FAILURE);
+            }
             (*nets)++;
-            check_net(net);
         }
+        check_net(net);
 
         if (*input->pos == ';')
             input->pos++;
